@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>NineMemos · AI 차트 랩 시연</title>
+<style>
+:root{
+  --slate:#0C1A17;
+  --board:#13272220;
+  --board-solid:#132722;
+  --rule:#24413A;
+  --chalk:#E9EFE9;
+  --chalk-dim:#8FA79E;
+  --up:#E4453A;
+  --down:#2E6FE8;
+  --brass:#D8B45A;
+  --brass-soft:#D8B45A33;
+  --font-body:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+  --font-mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,"Courier New",monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--slate);
+  color:var(--chalk);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  line-height:1.55;
+  overflow-x:hidden;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(120% 80% at 15% -10%, #1C3B33 0%, transparent 55%),
+    radial-gradient(90% 70% at 90% 0%, #17322C 0%, transparent 60%);
+  opacity:.9;
+}
+.wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:28px 20px 64px;}
+
+/* ---------- header ---------- */
+.eyebrow{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--brass);margin:0 0 14px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.eyebrow span.rule{flex:1;height:1px;background:var(--rule);min-width:24px;}
+h1{
+  font-size:clamp(28px,5.2vw,52px);line-height:1.08;margin:0 0 14px;
+  font-weight:800;letter-spacing:-.03em;
+}
+h1 em{font-style:normal;color:var(--brass);}
+.lede{max-width:62ch;color:var(--chalk-dim);font-size:15.5px;margin:0 0 8px;}
+.origin{
+  margin:18px 0 0;padding:12px 14px;border-left:2px solid var(--brass);
+  background:#ffffff08;font-size:13.5px;color:var(--chalk-dim);max-width:70ch;border-radius:0 6px 6px 0;
+}
+.origin b{color:var(--chalk);font-weight:600;}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:0;margin:30px 0 0;border-bottom:1px solid var(--rule);flex-wrap:wrap;}
+.tab{
+  appearance:none;background:none;border:0;border-bottom:2px solid transparent;
+  color:var(--chalk-dim);font-family:var(--font-body);font-size:14px;font-weight:600;
+  padding:12px 16px;cursor:pointer;display:flex;align-items:baseline;gap:8px;
+  margin-bottom:-1px;transition:color .18s ease,border-color .18s ease;
+}
+.tab .num{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;opacity:.7;}
+.tab:hover{color:var(--chalk);}
+.tab[aria-selected="true"]{color:var(--chalk);border-bottom-color:var(--brass);}
+.tab:focus-visible{outline:2px solid var(--brass);outline-offset:2px;border-radius:4px;}
+
+/* ---------- stage ---------- */
+.panel{display:none;}
+.panel.on{display:block;}
+.stage{
+  display:grid;grid-template-columns:1fr 300px;gap:18px;margin-top:20px;align-items:start;
+}
+@media (max-width:880px){.stage{grid-template-columns:1fr;}}
+
+.board{
+  position:relative;background:var(--board-solid);
+  border:1px solid var(--rule);border-radius:10px;overflow:hidden;
+  box-shadow:inset 0 1px 0 #ffffff10;
+}
+.board-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 14px;border-bottom:1px solid var(--rule);flex-wrap:wrap;
+}
+.ticker{display:flex;align-items:baseline;gap:10px;}
+.ticker b{font-size:15px;font-weight:700;letter-spacing:-.01em;}
+.ticker .code,.ticker .px{font-family:var(--font-mono);font-size:11.5px;color:var(--chalk-dim);}
+.ticker .px em{font-style:normal;color:var(--up);}
+.synthetic{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--chalk-dim);border:1px solid var(--rule);padding:3px 7px;border-radius:3px;
+}
+canvas{display:block;width:100%;touch-action:none;}
+#sketchCanvas,#nlCanvas{height:420px;cursor:crosshair;}
+#gl{height:460px;cursor:grab;}
+#gl.dragging{cursor:grabbing;}
+@media (max-width:880px){#sketchCanvas,#nlCanvas{height:330px;} #gl{height:340px;}}
+
+.hint{
+  position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;transition:opacity .4s ease;
+  font-size:13.5px;color:var(--chalk-dim);width:min(90%,340px);
+}
+.hint .big{
+  display:block;font-size:17px;color:var(--chalk);font-weight:600;margin-bottom:6px;letter-spacing:-.01em;
+}
+.hint.hide{opacity:0;}
+
+/* ---------- side rail ---------- */
+.rail{display:flex;flex-direction:column;gap:12px;}
+.card{
+  background:#ffffff07;border:1px solid var(--rule);border-radius:10px;padding:14px;
+}
+.card h3{
+  margin:0 0 10px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--brass);font-weight:600;
+}
+.readout{min-height:132px;}
+.empty{color:var(--chalk-dim);font-size:13px;margin:0;}
+.result-type{font-size:17px;font-weight:700;letter-spacing:-.02em;margin:0 0 2px;}
+.result-sub{font-size:12.5px;color:var(--chalk-dim);margin:0 0 12px;}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-top:1px dashed var(--rule);font-size:12.5px;}
+.kv span{color:var(--chalk-dim);}
+.kv b{font-family:var(--font-mono);font-weight:500;letter-spacing:-.01em;}
+.conf{margin-top:12px;}
+.conf-bar{height:3px;background:#ffffff14;border-radius:2px;overflow:hidden;margin-top:5px;}
+.conf-bar i{display:block;height:100%;background:var(--brass);width:0;transition:width .6s cubic-bezier(.2,.8,.2,1);}
+
+.tools{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{
+  appearance:none;font-family:var(--font-body);font-size:12px;font-weight:500;
+  background:#ffffff0a;color:var(--chalk-dim);border:1px solid var(--rule);
+  padding:6px 10px;border-radius:999px;cursor:pointer;transition:all .15s ease;
+}
+.chip:hover{color:var(--chalk);border-color:#3B6459;}
+.chip[aria-pressed="true"]{background:var(--brass);color:#10211C;border-color:var(--brass);font-weight:600;}
+.chip:focus-visible{outline:2px solid var(--brass);outline-offset:2px;}
+
+.slider{margin-top:4px;}
+.slider label{display:flex;justify-content:space-between;font-size:12px;color:var(--chalk-dim);margin-bottom:6px;}
+.slider label b{font-family:var(--font-mono);color:var(--chalk);font-weight:500;}
+input[type=range]{
+  width:100%;appearance:none;height:3px;background:#ffffff18;border-radius:2px;outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  appearance:none;width:15px;height:15px;border-radius:50%;background:var(--brass);cursor:pointer;border:2px solid var(--board-solid);
+}
+input[type=range]::-moz-range-thumb{
+  width:13px;height:13px;border-radius:50%;background:var(--brass);cursor:pointer;border:2px solid var(--board-solid);
+}
+input[type=range]:focus-visible{outline:2px solid var(--brass);outline-offset:4px;}
+
+/* ---------- prompt ---------- */
+.prompt-row{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;}
+.prompt-row input[type=text]{
+  flex:1;min-width:240px;background:#ffffff08;border:1px solid var(--rule);border-radius:8px;
+  color:var(--chalk);font-family:var(--font-body);font-size:14px;padding:11px 13px;
+}
+.prompt-row input[type=text]::placeholder{color:#6C857C;}
+.prompt-row input[type=text]:focus{outline:none;border-color:var(--brass);}
+.go{
+  appearance:none;background:var(--brass);color:#10211C;border:0;border-radius:8px;
+  font-family:var(--font-body);font-size:14px;font-weight:700;padding:11px 20px;cursor:pointer;
+}
+.go:hover{filter:brightness(1.08);}
+.go:focus-visible{outline:2px solid var(--chalk);outline-offset:2px;}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+
+.parsed{list-style:none;margin:0;padding:0;}
+.parsed li{
+  display:flex;gap:8px;align-items:flex-start;font-size:12.5px;padding:6px 0;
+  border-top:1px dashed var(--rule);opacity:0;transform:translateY(4px);
+  animation:rise .34s cubic-bezier(.2,.8,.2,1) forwards;
+}
+.parsed li:first-child{border-top:0;}
+.parsed li i{font-style:normal;color:var(--brass);font-family:var(--font-mono);font-size:10px;padding-top:3px;}
+@keyframes rise{to{opacity:1;transform:none;}}
+
+/* ---------- roadmap ---------- */
+.roadmap{margin-top:56px;border-top:1px solid var(--rule);padding-top:28px;}
+.roadmap h2{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:0 0 4px;}
+.roadmap p.sub{color:var(--chalk-dim);font-size:13.5px;margin:0 0 20px;}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+@media (max-width:760px){.steps{grid-template-columns:1fr;}}
+.step{border-top:2px solid var(--rule);padding-top:12px;}
+.step.now{border-top-color:var(--brass);}
+.step .phase{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--brass);}
+.step h4{margin:6px 0 6px;font-size:15px;font-weight:700;letter-spacing:-.01em;}
+.step p{margin:0;font-size:13px;color:var(--chalk-dim);}
+.step ul{margin:8px 0 0;padding-left:16px;font-size:12.5px;color:var(--chalk-dim);}
+.step li{margin-bottom:3px;}
+footer{margin-top:40px;font-size:11.5px;color:#6C857C;font-family:var(--font-mono);letter-spacing:.03em;}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">NineMemos Chart Lab · 내부 시연용 프로토타입<span class="rule"></span>v0.1</p>
+  <h1>대충 그으면,<br><em>AI가 정확한 차트로</em> 바꿔 드립니다.</h1>
+  <p class="lede">스마트 칠판이 손그림을 정밀한 함수 그래프로 바꾸는 방식을, 주식 차트에 맞게 옮겼습니다.
+  손으로 그린 선은 실제 캔들의 고점·저점에 스냅되고, 캔들과 거래량은 3D로 돌려보거나 잘라볼 수 있습니다.</p>
+
+  <p class="origin"><b>원본 레퍼런스</b> — 중국 AI 스마트 칠판: 손으로 대충 그린 함수·도형이 실시간으로 정확한 2D 그래프/3D 모델로 변환되고, 화면을 밀어 360° 회전하거나 단면을 잘라보는 인터랙티브 시각화.</p>
+
+  <div class="tabs" role="tablist" aria-label="시연 모드">
+    <button class="tab" role="tab" aria-selected="true" aria-controls="p1" id="t1"><span class="num">01</span>스케치 인식</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="p2" id="t2"><span class="num">02</span>3D 캔들·거래량</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="p3" id="t3"><span class="num">03</span>말로 그리는 차트</button>
+  </div>
+
+  <!-- ================= PANEL 1 ================= -->
+  <section class="panel on" id="p1" role="tabpanel" aria-labelledby="t1">
+    <div class="stage">
+      <div class="board">
+        <div class="board-head">
+          <div class="ticker">
+            <b>나인샘플전자</b><span class="code">099990 · KOSPI</span>
+            <span class="px">78,400 <em>+2.14%</em></span>
+          </div>
+          <span class="synthetic">합성 데이터</span>
+        </div>
+        <canvas id="sketchCanvas"></canvas>
+        <div class="hint" id="sketchHint">
+          <span class="big">차트 위에 손으로 그려 보세요</span>
+          저점을 따라 비스듬히 긋거나, 가로로 한 줄, 위아래로 크게 한 번, 지그재그로 산 세 개 —
+          그린 모양에 따라 AI가 무엇을 의도했는지 판별합니다.
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="card readout" id="sketchReadout">
+          <h3>AI 인식 결과</h3>
+          <p class="empty">아직 입력된 스트로크가 없습니다. 차트 위에 선을 그으면 형태를 분석해 정밀 도구로 변환합니다.</p>
+        </div>
+        <div class="card">
+          <h3>인식 대상</h3>
+          <div class="tools">
+            <button class="chip" aria-pressed="true" disabled>추세선</button>
+            <button class="chip" aria-pressed="true" disabled>지지·저항</button>
+            <button class="chip" aria-pressed="true" disabled>피보나치</button>
+            <button class="chip" aria-pressed="true" disabled>헤드앤숄더</button>
+            <button class="chip" aria-pressed="true" disabled>구간 강조</button>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:6px;">
+            <button class="chip" id="undoBtn">마지막 하나 지우기</button>
+            <button class="chip" id="clearBtn">전체 지우기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PANEL 2 ================= -->
+  <section class="panel" id="p2" role="tabpanel" aria-labelledby="t2">
+    <div class="stage">
+      <div class="board">
+        <div class="board-head">
+          <div class="ticker">
+            <b>나인샘플전자</b><span class="code">3D 뷰 · 캔들 + 거래량 이중 평면</span>
+          </div>
+          <span class="synthetic">드래그로 회전</span>
+        </div>
+        <div id="gl"></div>
+        <div class="hint" id="glHint">
+          <span class="big">화면을 밀어 돌려 보세요</span>
+          앞면은 캔들, 뒤쪽 평면은 거래량입니다. 휠(또는 두 손가락)로 확대하고,
+          오른쪽 슬라이더로 특정 구간만 잘라서 볼 수 있습니다.
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="card">
+          <h3>단면 잘라보기</h3>
+          <div class="slider">
+            <label for="cutPos">구간 중심<b id="cutPosVal">45일차</b></label>
+            <input type="range" id="cutPos" min="0" max="100" value="50" />
+          </div>
+          <div class="slider" style="margin-top:14px;">
+            <label for="cutWidth">구간 폭<b id="cutWidthVal">90일</b></label>
+            <input type="range" id="cutWidth" min="6" max="100" value="100" />
+          </div>
+          <p class="empty" style="margin-top:12px;">폭을 좁히면 그 구간의 캔들만 남습니다. 급등 구간만 잘라서 각도를 바꿔 보면 거래량 평면과의 관계가 드러납니다.</p>
+        </div>
+        <div class="card">
+          <h3>시점</h3>
+          <div class="tools">
+            <button class="chip" data-view="front" aria-pressed="true">정면</button>
+            <button class="chip" data-view="iso" aria-pressed="false">비스듬히</button>
+            <button class="chip" data-view="top" aria-pressed="false">위에서</button>
+            <button class="chip" data-view="spin" aria-pressed="false">자동 회전</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>범례</h3>
+          <div class="kv"><span>상승 캔들</span><b style="color:var(--up)">■ 시가 &lt; 종가</b></div>
+          <div class="kv"><span>하락 캔들</span><b style="color:var(--down)">■ 시가 &gt; 종가</b></div>
+          <div class="kv"><span>뒷면 평면</span><b style="color:var(--brass)">■ 거래량</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PANEL 3 ================= -->
+  <section class="panel" id="p3" role="tabpanel" aria-labelledby="t3">
+    <div class="stage">
+      <div class="board">
+        <div class="board-head">
+          <div class="ticker">
+            <b>나인샘플전자</b><span class="code">099990 · 최근 90일</span>
+          </div>
+          <span class="synthetic">합성 데이터</span>
+        </div>
+        <canvas id="nlCanvas"></canvas>
+        <div class="hint" id="nlHint">
+          <span class="big">문장으로 지시하면 차트가 그려집니다</span>
+          아래에 직접 입력하거나 예시 문장을 눌러 보세요.
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="card readout" id="nlReadout">
+          <h3>해석된 지시</h3>
+          <p class="empty">문장에서 종목·기간·패턴·지표를 뽑아 차트 명령으로 변환합니다.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="prompt-row">
+      <input type="text" id="nlInput" placeholder="예: 최근 3개월 헤드앤숄더랑 거래량 급증 구간 보여줘" />
+      <button class="go" id="nlGo">차트 그리기</button>
+    </div>
+    <div class="presets" id="nlPresets">
+      <button class="chip">최근 3개월 헤드앤숄더와 거래량 급증 구간 보여줘</button>
+      <button class="chip">20일 이동평균선이랑 지지선 같이 그려줘</button>
+      <button class="chip">급등 구간만 확대해서 피보나치 되돌림</button>
+      <button class="chip">이 종목 3D로 돌려서 보여줘</button>
+    </div>
+  </section>
+
+  <!-- ================= ROADMAP ================= -->
+  <section class="roadmap">
+    <h2>나인메모스에 얹는 순서</h2>
+    <p class="sub">체감 효과 대비 구현 난이도 기준으로, 왼쪽부터 붙이는 것을 권장합니다.</p>
+    <div class="steps">
+      <div class="step now">
+        <p class="phase">1단계 · 지금 붙일 수 있음</p>
+        <h4>스케치 → 정밀 도구 변환</h4>
+        <p>손으로 그은 선을 실제 고점·저점에 스냅. 서버 없이 클라이언트에서 처리 가능합니다.</p>
+        <ul>
+          <li>스트로크 기하 특징(직진도·기울기·전환점) 규칙 판별</li>
+          <li>최소자승 회귀 + 극점 스냅으로 좌표 확정</li>
+          <li>애매할 때만 LLM에 형태 서술을 넘겨 후보 제시</li>
+        </ul>
+      </div>
+      <div class="step">
+        <p class="phase">2단계 · 임팩트 담당</p>
+        <h4>3D 캔들·거래량 뷰</h4>
+        <p>영상과 가장 비슷한 인상을 주는 부분. WebGL 렌더링과 모바일 성능이 관건입니다.</p>
+        <ul>
+          <li>캔들·거래량 이중 평면 + 클리핑 단면</li>
+          <li>60fps 유지를 위한 인스턴싱, 캔들 수 상한</li>
+          <li>기본은 2D, "3D로 보기" 토글로 진입</li>
+        </ul>
+      </div>
+      <div class="step">
+        <p class="phase">3단계 · 나인메모스다운 지점</p>
+        <h4>문장 → 차트 생성</h4>
+        <p>이미 보유한 종목·뉴스·메모 데이터와 붙었을 때 가장 차별화됩니다.</p>
+        <ul>
+          <li>문장에서 종목·기간·패턴·지표 추출</li>
+          <li>차트 명령 스키마(JSON)로 변환 후 렌더</li>
+          <li>메모·뉴스 근거를 주석으로 함께 표시</li>
+        </ul>
+      </div>
+    </div>
+    <footer>모든 시세는 시연용 합성 데이터입니다 · 투자 판단의 최종 책임은 이용자에게 있으며 본 화면은 의사결정 보조 목적입니다.</footer>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   0. 합성 시세 데이터
+   ========================================================= */
+var N = 90;
+function lcg(seed){ var s = seed; return function(){ s = (s*1664525 + 1013904223) % 4294967296; return s/4294967296; }; }
+var rnd = lcg(20260820);
+var DATA = (function(){
+  var arr=[], price=64000;
+  for(var i=0;i<N;i++){
+    var drift = 130;
+    if(i>32 && i<46) drift = 900;      // 급등 구간
+    if(i>=46 && i<58) drift = -420;    // 조정
+    if(i>=70) drift = 380;
+    var o = price;
+    var c = o + drift + (rnd()-0.5)*1900;
+    var h = Math.max(o,c) + rnd()*900;
+    var l = Math.min(o,c) - rnd()*900;
+    var base = 1.6e6 + rnd()*1.1e6;
+    if(i>32 && i<46) base *= 2.6;      // 거래량 급증
+    if(i>=70 && i<76) base *= 1.9;
+    arr.push({o:o,h:h,l:l,c:c,v:base});
+    price = c;
+  }
+  return arr;
+})();
+var PMIN = Math.min.apply(null, DATA.map(function(d){return d.l;}));
+var PMAX = Math.max.apply(null, DATA.map(function(d){return d.h;}));
+var VMAX = Math.max.apply(null, DATA.map(function(d){return d.v;}));
+var PAD = (PMAX-PMIN)*0.08; PMIN-=PAD; PMAX+=PAD;
+
+var UP="#E4453A", DOWN="#2E6FE8", BRASS="#D8B45A", CHALK="#E9EFE9", DIM="#8FA79E", RULE="#24413A";
+function won(v){ return Math.round(v).toLocaleString("ko-KR"); }
+function reduceMotion(){ return window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+
+/* =========================================================
+   1. 2D 차트 렌더러 (스케치 패널 / 자연어 패널 공용)
+   ========================================================= */
+function ChartView(canvas){
+  this.cv = canvas;
+  this.ctx = canvas.getContext("2d");
+  this.overlays = [];      // 확정된 도구들
+  this.live = null;        // 그리는 중인 스트로크
+  this.morph = 1;
+  this.geo = {};
+  var self=this;
+  this.resize();
+  window.addEventListener("resize", function(){ self.resize(); self.draw(); });
+}
+ChartView.prototype.resize = function(){
+  var r = this.cv.getBoundingClientRect();
+  var dpr = Math.min(window.devicePixelRatio||1, 2);
+  this.W = r.width; this.H = r.height;
+  this.cv.width = Math.round(r.width*dpr);
+  this.cv.height = Math.round(r.height*dpr);
+  this.ctx.setTransform(dpr,0,0,dpr,0,0);
+  var g = this.geo;
+  g.padL = 14; g.padR = this.W<520 ? 52 : 68; g.padT = 18;
+  g.volH = this.H<360 ? 54 : 72;
+  g.padB = g.volH + 26;
+  g.cw = (this.W - g.padL - g.padR)/N;
+  g.chartH = this.H - g.padT - g.padB;
+};
+ChartView.prototype.x = function(i){ return this.geo.padL + (i+0.5)*this.geo.cw; };
+ChartView.prototype.y = function(p){ return this.geo.padT + (PMAX-p)/(PMAX-PMIN)*this.geo.chartH; };
+ChartView.prototype.toData = function(px,py){
+  return { i:(px-this.geo.padL)/this.geo.cw - 0.5,
+           p:PMAX - (py-this.geo.padT)/this.geo.chartH*(PMAX-PMIN) };
+};
+ChartView.prototype.draw = function(){
+  var c=this.ctx, g=this.geo, i;
+  c.clearRect(0,0,this.W,this.H);
+
+  /* 가격 눈금 */
+  c.font = "10px "+getComputedStyle(document.body).getPropertyValue("--font-mono");
+  c.textBaseline="middle";
+  for(i=0;i<=4;i++){
+    var p = PMIN + (PMAX-PMIN)*i/4, yy = this.y(p);
+    c.strokeStyle="#ffffff0d"; c.lineWidth=1;
+    c.beginPath(); c.moveTo(g.padL, yy+0.5); c.lineTo(this.W-g.padR, yy+0.5); c.stroke();
+    c.fillStyle=DIM; c.textAlign="left";
+    c.fillText(won(p), this.W-g.padR+8, yy);
+  }
+
+  /* 캔들 */
+  var bw = Math.max(2, g.cw*0.62);
+  for(i=0;i<N;i++){
+    var d=DATA[i], up = d.c>=d.o, col = up?UP:DOWN, xx=this.x(i);
+    c.strokeStyle=col; c.lineWidth=1;
+    c.beginPath(); c.moveTo(xx, this.y(d.h)); c.lineTo(xx, this.y(d.l)); c.stroke();
+    var yo=this.y(d.o), yc=this.y(d.c);
+    c.fillStyle = up ? col : col;
+    c.globalAlpha = up ? 1 : 0.92;
+    c.fillRect(xx-bw/2, Math.min(yo,yc), bw, Math.max(1.5,Math.abs(yc-yo)));
+    c.globalAlpha = 1;
+  }
+
+  /* 거래량 */
+  var vTop = this.H - g.padB + 20, vBot = this.H - 10;
+  c.strokeStyle=RULE; c.lineWidth=1;
+  c.beginPath(); c.moveTo(g.padL, vTop-8.5); c.lineTo(this.W-g.padR, vTop-8.5); c.stroke();
+  for(i=0;i<N;i++){
+    var h2 = DATA[i].v/VMAX*(vBot-vTop);
+    c.fillStyle = DATA[i].c>=DATA[i].o ? UP : DOWN;
+    c.globalAlpha = 0.42;
+    c.fillRect(this.x(i)-bw/2, vBot-h2, bw, h2);
+  }
+  c.globalAlpha=1;
+  c.fillStyle=DIM; c.textAlign="left";
+  c.fillText("거래량", g.padL+2, vTop+2);
+
+  /* 오버레이 */
+  for(i=0;i<this.overlays.length;i++) this.drawOverlay(this.overlays[i]);
+  if(this.live) this.drawStroke(this.live, "#ffffffcc", 2.4, true);
+};
+ChartView.prototype.drawStroke = function(pts, color, w, chalky){
+  var c=this.ctx;
+  c.save();
+  c.strokeStyle=color; c.lineWidth=w; c.lineJoin="round"; c.lineCap="round";
+  if(chalky){ c.globalAlpha=.85; c.setLineDash([]); c.shadowColor="#ffffff55"; c.shadowBlur=5; }
+  c.beginPath();
+  for(var i=0;i<pts.length;i++){
+    var px=this.x(pts[i].i), py=this.y(pts[i].p);
+    if(i===0) c.moveTo(px,py); else c.lineTo(px,py);
+  }
+  c.stroke();
+  c.restore();
+};
+ChartView.prototype.label = function(px,py,text,color,align){
+  var c=this.ctx;
+  c.save();
+  c.font="600 11px "+getComputedStyle(document.body).getPropertyValue("--font-body");
+  var w = c.measureText(text).width + 14;
+  var x0 = align==="right" ? px-w : px;
+  c.fillStyle="#0C1A17ee";
+  c.strokeStyle=color; c.lineWidth=1;
+  var r=4, h=19, y0=py-h/2;
+  c.beginPath();
+  c.moveTo(x0+r,y0); c.arcTo(x0+w,y0,x0+w,y0+h,r); c.arcTo(x0+w,y0+h,x0,y0+h,r);
+  c.arcTo(x0,y0+h,x0,y0,r); c.arcTo(x0,y0,x0+w,y0,r); c.closePath();
+  c.fill(); c.stroke();
+  c.fillStyle=color; c.textAlign="left"; c.textBaseline="middle";
+  c.fillText(text, x0+7, y0+h/2+0.5);
+  c.restore();
+};
+ChartView.prototype.drawOverlay = function(ov){
+  var c=this.ctx, self=this, t = ov.t===undefined?1:ov.t, i;
+  function lerpPts(raw, target){
+    var out=[], n=Math.max(raw.length,2);
+    for(var k=0;k<n;k++){
+      var a = raw[Math.min(k, raw.length-1)];
+      var f = k/(n-1);
+      var b = { i: target[0].i + (target[1].i-target[0].i)*f,
+                p: target[0].p + (target[1].p-target[0].p)*f };
+      out.push({ i:a.i+(b.i-a.i)*t, p:a.p+(b.p-a.p)*t });
+    }
+    return out;
+  }
+
+  if(ov.kind==="line"){
+    var pts = t<1 && ov.raw ? lerpPts(ov.raw, ov.pts) : ov.pts;
+    c.save();
+    c.strokeStyle = BRASS; c.lineWidth=1.8; c.lineCap="round";
+    c.globalAlpha = 0.35+0.65*t;
+    c.beginPath();
+    c.moveTo(this.x(pts[0].i), this.y(pts[0].p));
+    c.lineTo(this.x(pts[pts.length-1].i), this.y(pts[pts.length-1].p));
+    c.stroke();
+    /* 접점 표시 */
+    if(ov.touch){
+      c.fillStyle=BRASS;
+      for(i=0;i<ov.touch.length;i++){
+        c.beginPath(); c.arc(this.x(ov.touch[i].i), this.y(ov.touch[i].p), 3.2, 0, 6.284); c.fill();
+      }
+    }
+    c.restore();
+    if(t>0.7) this.label(this.x(pts[pts.length-1].i)+6, this.y(pts[pts.length-1].p), ov.text, BRASS);
+  }
+
+  if(ov.kind==="hline"){
+    c.save();
+    c.strokeStyle=BRASS; c.lineWidth=1.6; c.setLineDash([6,4]);
+    c.globalAlpha=0.35+0.65*t;
+    var yy=this.y(ov.price);
+    c.beginPath(); c.moveTo(this.geo.padL, yy); c.lineTo(this.W-this.geo.padR, yy); c.stroke();
+    c.restore();
+    if(t>0.7) this.label(this.geo.padL+8, yy-13, ov.text+" "+won(ov.price), BRASS);
+  }
+
+  if(ov.kind==="fib"){
+    var lv=[0,0.236,0.382,0.5,0.618,0.786,1];
+    c.save(); c.globalAlpha=t;
+    for(i=0;i<lv.length;i++){
+      var p2 = ov.hi + (ov.lo-ov.hi)*lv[i], y2=this.y(p2);
+      c.strokeStyle = (lv[i]===0.618||lv[i]===0.382) ? BRASS : "#D8B45A55";
+      c.lineWidth = (lv[i]===0.618||lv[i]===0.382) ? 1.4 : 1;
+      c.setLineDash([4,4]);
+      c.beginPath(); c.moveTo(this.x(ov.i0), y2); c.lineTo(this.W-this.geo.padR, y2); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = (lv[i]===0.618||lv[i]===0.382) ? BRASS : "#D8B45A99";
+      c.textAlign="left"; c.textBaseline="bottom";
+      c.font="10px "+getComputedStyle(document.body).getPropertyValue("--font-mono");
+      c.fillText(lv[i].toFixed(3)+"  "+won(p2), this.x(ov.i0)+4, y2-2);
+    }
+    c.restore();
+  }
+
+  if(ov.kind==="zone"){
+    c.save(); c.globalAlpha=t*0.9;
+    var xa=this.x(ov.i0), xb=this.x(ov.i1);
+    c.fillStyle="#D8B45A14";
+    c.fillRect(xa, this.geo.padT, xb-xa, this.geo.chartH);
+    c.strokeStyle=BRASS; c.lineWidth=1; c.setLineDash([5,4]);
+    c.strokeRect(xa+0.5, this.geo.padT+0.5, xb-xa, this.geo.chartH);
+    c.restore();
+    if(t>0.7) this.label(xa+6, this.geo.padT+14, ov.text, BRASS);
+  }
+
+  if(ov.kind==="pattern"){
+    c.save(); c.globalAlpha=t;
+    c.strokeStyle=BRASS; c.lineWidth=1.8; c.lineJoin="round";
+    c.beginPath();
+    for(i=0;i<ov.pts.length;i++){
+      var qx=this.x(ov.pts[i].i), qy=this.y(ov.pts[i].p);
+      if(i===0) c.moveTo(qx,qy); else c.lineTo(qx,qy);
+    }
+    c.stroke();
+    c.fillStyle=BRASS;
+    for(i=0;i<ov.pts.length;i++){
+      c.beginPath(); c.arc(this.x(ov.pts[i].i), this.y(ov.pts[i].p), 3.4,0,6.284); c.fill();
+    }
+    if(ov.neck){
+      c.strokeStyle="#D8B45A99"; c.setLineDash([6,4]); c.lineWidth=1.4;
+      c.beginPath();
+      c.moveTo(this.x(ov.neck[0].i), this.y(ov.neck[0].p));
+      c.lineTo(this.x(ov.neck[1].i), this.y(ov.neck[1].p));
+      c.stroke();
+    }
+    c.restore();
+    if(t>0.7) this.label(this.x(ov.pts[2].i), this.y(ov.pts[2].p)-18, ov.text, BRASS);
+  }
+
+  if(ov.kind==="ma"){
+    c.save(); c.globalAlpha=t; c.strokeStyle="#7FD4B8"; c.lineWidth=1.6; c.lineJoin="round";
+    c.beginPath();
+    var started=false;
+    for(i=0;i<N;i++){
+      if(ov.vals[i]==null) continue;
+      var mx=this.x(i), my=this.y(ov.vals[i]);
+      if(!started){ c.moveTo(mx,my); started=true; } else c.lineTo(mx,my);
+    }
+    c.stroke(); c.restore();
+    if(t>0.7) this.label(this.x(N-1)-4, this.y(ov.vals[N-1]), ov.text, "#7FD4B8", "right");
+  }
+};
+ChartView.prototype.animateLast = function(){
+  var self=this, ov=this.overlays[this.overlays.length-1];
+  if(!ov) return;
+  if(reduceMotion()){ ov.t=1; this.draw(); return; }
+  ov.t=0;
+  var t0=performance.now(), dur=560;
+  (function step(now){
+    var k=Math.min(1,(now-t0)/dur);
+    ov.t = 1-Math.pow(1-k,3);
+    self.draw();
+    if(k<1) requestAnimationFrame(step);
+  })(t0);
+};
+
+/* =========================================================
+   2. 스케치 인식
+   ========================================================= */
+var sketch = new ChartView(document.getElementById("sketchCanvas"));
+sketch.draw();
+var sketchHint = document.getElementById("sketchHint");
+var readout = document.getElementById("sketchReadout");
+
+function localExtremes(kind, window_){
+  var res=[];
+  for(var i=window_;i<N-window_;i++){
+    var ok=true;
+    for(var j=i-window_;j<=i+window_;j++){
+      if(j===i) continue;
+      if(kind==="high" && DATA[j].h>=DATA[i].h) ok=false;
+      if(kind==="low"  && DATA[j].l<=DATA[i].l) ok=false;
+    }
+    if(ok) res.push({i:i, p: kind==="high"?DATA[i].h:DATA[i].l});
+  }
+  return res;
+}
+var HIGHS = localExtremes("high",3), LOWS = localExtremes("low",3);
+
+function analyze(pts){
+  var i;
+  var iMin=1e9,iMax=-1e9,pMin=1e9,pMax=-1e9, len=0;
+  for(i=0;i<pts.length;i++){
+    iMin=Math.min(iMin,pts[i].i); iMax=Math.max(iMax,pts[i].i);
+    pMin=Math.min(pMin,pts[i].p); pMax=Math.max(pMax,pts[i].p);
+    if(i) len += Math.abs(pts[i].i-pts[i-1].i) + Math.abs(pts[i].p-pts[i-1].p)/(PMAX-PMIN)*N;
+  }
+  var a=pts[0], b=pts[pts.length-1];
+  var endDist = Math.abs(b.i-a.i) + Math.abs(b.p-a.p)/(PMAX-PMIN)*N;
+  var straight = len>0 ? endDist/len : 0;
+  var closed = endDist < 6 && len > 24;
+  var wSpan = iMax-iMin, hSpan = (pMax-pMin)/(PMAX-PMIN)*N;
+
+  /* 방향 전환 횟수 */
+  var turns=0, dir=0;
+  for(i=1;i<pts.length;i++){
+    var dp = pts[i].p - pts[i-1].p;
+    if(Math.abs(dp) < (PMAX-PMIN)*0.006) continue;
+    var nd = dp>0?1:-1;
+    if(dir!==0 && nd!==dir) turns++;
+    dir=nd;
+  }
+  return {straight:straight, closed:closed, turns:turns, wSpan:wSpan, hSpan:hSpan,
+          iMin:iMin, iMax:iMax, pMin:pMin, pMax:pMax, a:a, b:b};
+}
+
+function recognize(pts){
+  var f = analyze(pts), i;
+
+  /* (1) 닫힌 도형 또는 세로로 길쭉 → 구간 강조 / 피보나치 */
+  if(f.closed){
+    return { kind:"zone", i0:Math.max(0,Math.round(f.iMin)), i1:Math.min(N-1,Math.round(f.iMax)),
+             text:"관심 구간", type:"구간 강조",
+             sub:"닫힌 형태로 인식 → 해당 기간을 관심 구간으로 고정",
+             rows:[["기간", (Math.round(f.iMin)+1)+"~"+(Math.round(f.iMax)+1)+"일차"],
+                   ["가격대", won(f.pMin)+" ~ "+won(f.pMax)]],
+             conf:0.88 };
+  }
+  if(f.hSpan > f.wSpan*1.6 && f.straight>0.6){
+    var hi=Math.max(f.a.p,f.b.p), lo=Math.min(f.a.p,f.b.p);
+    return { kind:"fib", hi:hi, lo:lo, i0:Math.max(0,Math.round(f.iMin)-1), type:"피보나치 되돌림",
+             sub:"수직에 가까운 스트로크 → 고점·저점 기준 되돌림 레벨 생성",
+             rows:[["고점", won(hi)],["저점", won(lo)],["0.618", won(hi+(lo-hi)*0.618)]],
+             conf:0.91 };
+  }
+
+  /* (2) 지그재그 → 헤드앤숄더 */
+  if(f.turns>=3 && f.wSpan>18){
+    var peaks = HIGHS.filter(function(h){return h.i>=f.iMin-4 && h.i<=f.iMax+4;});
+    var troughs = LOWS.filter(function(l){return l.i>=f.iMin-4 && l.i<=f.iMax+4;});
+    if(peaks.length>=3 && troughs.length>=2){
+      peaks.sort(function(x,y){return y.p-x.p;});
+      var head = peaks[0];
+      var left = null, right = null, k;
+      for(k=0;k<peaks.length;k++){ if(peaks[k].i<head.i-3){ left=peaks[k]; break; } }
+      for(k=0;k<peaks.length;k++){ if(peaks[k].i>head.i+3){ right=peaks[k]; break; } }
+      if(left && right){
+        var t1=null,t2=null;
+        for(k=0;k<troughs.length;k++){
+          if(troughs[k].i>left.i && troughs[k].i<head.i) t1 = t1&&t1.p<troughs[k].p?t1:troughs[k];
+          if(troughs[k].i>head.i && troughs[k].i<right.i) t2 = t2&&t2.p<troughs[k].p?t2:troughs[k];
+        }
+        if(t1&&t2){
+          var sym = 1 - Math.min(1, Math.abs(left.p-right.p)/(PMAX-PMIN)*3);
+          return { kind:"pattern", pts:[left,t1,head,t2,right],
+                   neck:[{i:t1.i,p:t1.p},{i:t2.i,p:t2.p}], text:"헤드앤숄더",
+                   type:"헤드앤숄더",
+                   sub:"전환점 "+f.turns+"회 지그재그 → 5개 극점에 스냅",
+                   rows:[["헤드", won(head.p)+" ("+(head.i+1)+"일차)"],
+                         ["넥라인", won((t1.p+t2.p)/2)],
+                         ["어깨 대칭도", (sym*100).toFixed(0)+"%"]],
+                   conf: 0.62+sym*0.3 };
+        }
+      }
+    }
+  }
+
+  /* (3) 직선 → 수평이면 지지·저항, 아니면 추세선 */
+  var slopePerBar = (f.b.p-f.a.p)/Math.max(1,(f.b.i-f.a.i));
+  var slopeNorm = Math.abs(slopePerBar)/(PMAX-PMIN)*N;
+  if(slopeNorm < 0.9){
+    /* 스트로크 평균가 근처의 실제 극점으로 스냅 */
+    var avg=0; for(i=0;i<pts.length;i++) avg+=pts[i].p; avg/=pts.length;
+    var cand = HIGHS.concat(LOWS), best=null, bd=1e18;
+    for(i=0;i<cand.length;i++){
+      var d=Math.abs(cand[i].p-avg);
+      if(d<bd){ bd=d; best=cand[i]; }
+    }
+    var price = best?best.p:avg;
+    var touches = cand.filter(function(x){ return Math.abs(x.p-price) < (PMAX-PMIN)*0.018; }).length;
+    var isRes = price > DATA[N-1].c;
+    return { kind:"hline", price:price, text:isRes?"저항":"지지", type:isRes?"저항선":"지지선",
+             sub:"수평 스트로크 → 인접 극점 가격으로 스냅",
+             rows:[["가격", won(price)],["접점 수", touches+"개"],
+                   ["현재가 대비", ((price/DATA[N-1].c-1)*100).toFixed(2)+"%"]],
+             conf: Math.min(0.96, 0.6+touches*0.09) };
+  }
+
+  /* 추세선: 스트로크가 캔들보다 아래면 저점, 위면 고점에 회귀 */
+  var below=0;
+  for(i=0;i<pts.length;i++){
+    var idx=Math.round(pts[i].i);
+    if(idx<0||idx>=N) continue;
+    if(pts[i].p < (DATA[idx].h+DATA[idx].l)/2) below++;
+  }
+  var useLows = below > pts.length/2;
+  var pool = (useLows?LOWS:HIGHS).filter(function(x){ return x.i>=f.iMin-3 && x.i<=f.iMax+3; });
+  if(pool.length<2){
+    pool = (useLows?LOWS:HIGHS).slice();
+  }
+  /* 스트로크에 가장 가까운 두 극점 선택 */
+  function distToStroke(pt){
+    var m=1e18;
+    for(var q=0;q<pts.length;q++){
+      var dd = Math.pow((pts[q].i-pt.i)/N,2) + Math.pow((pts[q].p-pt.p)/(PMAX-PMIN),2);
+      m=Math.min(m,dd);
+    }
+    return m;
+  }
+  pool.sort(function(x,y){ return distToStroke(x)-distToStroke(y); });
+  var p1=pool[0], p2=pool[1]||pool[0];
+  if(p1.i>p2.i){ var tmp=p1; p1=p2; p2=tmp; }
+  var slope = (p2.p-p1.p)/Math.max(1,(p2.i-p1.i));
+  var e0 = {i:Math.max(0,f.iMin-2), p:p1.p + slope*(Math.max(0,f.iMin-2)-p1.i)};
+  var e1 = {i:Math.min(N-1,f.iMax+6), p:p1.p + slope*(Math.min(N-1,f.iMax+6)-p1.i)};
+  var pct = slope/DATA[Math.round(p1.i)].c*100;
+  return { kind:"line", pts:[e0,e1], raw:pts, touch:[p1,p2],
+           text:(useLows?"상승 지지선":"하락 저항선"), type: slope>0?"상승 추세선":"하락 추세선",
+           sub:(useLows?"저점":"고점")+" 회귀 후 실제 극점 2곳에 스냅",
+           rows:[["기울기", (pct>0?"+":"")+pct.toFixed(2)+"% / 일"],
+                 ["접점", (p1.i+1)+"일차 · "+(p2.i+1)+"일차"],
+                 ["연장 종가", won(e1.p)]],
+           conf: Math.min(0.95, 0.55 + f.straight*0.42) };
+}
+
+function renderReadout(el, r){
+  var rows="";
+  for(var i=0;i<r.rows.length;i++){
+    rows += '<div class="kv"><span>'+r.rows[i][0]+'</span><b>'+r.rows[i][1]+'</b></div>';
+  }
+  el.innerHTML =
+    '<h3>AI 인식 결과</h3>'+
+    '<p class="result-type">'+r.type+'</p>'+
+    '<p class="result-sub">'+r.sub+'</p>'+ rows +
+    '<div class="conf"><div class="kv" style="border:0;padding-bottom:2px;"><span>신뢰도</span><b>'+
+    Math.round(r.conf*100)+'%</b></div><div class="conf-bar"><i></i></div></div>';
+  requestAnimationFrame(function(){
+    var bar = el.querySelector(".conf-bar i");
+    if(bar) bar.style.width = Math.round(r.conf*100)+"%";
+  });
+}
+
+function attachDrawing(view, onDone){
+  var drawing=false, pts=[];
+  function pos(e){
+    var r=view.cv.getBoundingClientRect();
+    var t = e.touches ? e.touches[0] : e;
+    return view.toData(t.clientX-r.left, t.clientY-r.top);
+  }
+  function start(e){
+    e.preventDefault();
+    drawing=true; pts=[pos(e)]; view.live=pts; view.draw();
+  }
+  function move(e){
+    if(!drawing) return;
+    e.preventDefault();
+    var p=pos(e), last=pts[pts.length-1];
+    if(Math.abs(p.i-last.i)<0.12 && Math.abs(p.p-last.p)<(PMAX-PMIN)*0.002) return;
+    pts.push(p); view.draw();
+  }
+  function end(e){
+    if(!drawing) return;
+    drawing=false; view.live=null;
+    if(pts.length>=4) onDone(pts.slice());
+    else view.draw();
+  }
+  view.cv.addEventListener("pointerdown", start);
+  view.cv.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", end);
+  view.cv.addEventListener("pointerleave", function(e){ if(drawing) end(e); });
+}
+
+attachDrawing(sketch, function(pts){
+  sketchHint.classList.add("hide");
+  var r = recognize(pts);
+  sketch.overlays.push(r);
+  sketch.animateLast();
+  renderReadout(readout, r);
+});
+document.getElementById("undoBtn").addEventListener("click", function(){
+  sketch.overlays.pop(); sketch.draw();
+  if(!sketch.overlays.length){
+    readout.innerHTML = '<h3>AI 인식 결과</h3><p class="empty">아직 입력된 스트로크가 없습니다. 차트 위에 선을 그으면 형태를 분석해 정밀 도구로 변환합니다.</p>';
+    sketchHint.classList.remove("hide");
+  }
+});
+document.getElementById("clearBtn").addEventListener("click", function(){
+  sketch.overlays=[]; sketch.draw();
+  readout.innerHTML = '<h3>AI 인식 결과</h3><p class="empty">아직 입력된 스트로크가 없습니다. 차트 위에 선을 그으면 형태를 분석해 정밀 도구로 변환합니다.</p>';
+  sketchHint.classList.remove("hide");
+});
+
+/* =========================================================
+   3. 3D 뷰
+   ========================================================= */
+var three = { ready:false };
+function init3D(){
+  if(three.ready || typeof THREE === "undefined") return;
+  var host = document.getElementById("gl");
+  var w = host.clientWidth, h = host.clientHeight;
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(38, w/h, 1, 4000);
+  camera.position.set(0, 0, 620);
+  var renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.setSize(w,h);
+  renderer.localClippingEnabled = true;
+  host.appendChild(renderer.domElement);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+  var key = new THREE.DirectionalLight(0xffffff, 0.85); key.position.set(220,300,420); scene.add(key);
+  var fill = new THREE.DirectionalLight(0x9FD8C4, 0.3); fill.position.set(-300,-120,220); scene.add(fill);
+
+  var group = new THREE.Group(); scene.add(group);
+
+  var SPAN = 520, step = SPAN/N, half = SPAN/2;
+  var yScale = 300/(PMAX-PMIN);
+  function ypos(p){ return (p-(PMIN+PMAX)/2)*yScale; }
+
+  var planeA = new THREE.Plane(new THREE.Vector3(1,0,0), half);
+  var planeB = new THREE.Plane(new THREE.Vector3(-1,0,0), half);
+  var clip = [planeA, planeB];
+
+  var matUp = new THREE.MeshLambertMaterial({color:0xE4453A, clippingPlanes:clip});
+  var matDown = new THREE.MeshLambertMaterial({color:0x2E6FE8, clippingPlanes:clip});
+  var matVol = new THREE.MeshLambertMaterial({color:0xD8B45A, transparent:true, opacity:0.55, clippingPlanes:clip});
+  var matWick = new THREE.MeshBasicMaterial({color:0xE9EFE9, transparent:true, opacity:0.34, clippingPlanes:clip});
+
+  var bw = step*0.6;
+  for(var i=0;i<N;i++){
+    var d=DATA[i], up=d.c>=d.o;
+    var x = -half + (i+0.5)*step;
+    var bodyH = Math.max(1.5, Math.abs(ypos(d.c)-ypos(d.o)));
+    var body = new THREE.Mesh(new THREE.BoxGeometry(bw, bodyH, bw), up?matUp:matDown);
+    body.position.set(x, (ypos(d.o)+ypos(d.c))/2, 0);
+    group.add(body);
+
+    var wick = new THREE.Mesh(new THREE.BoxGeometry(bw*0.16, ypos(d.h)-ypos(d.l), bw*0.16), matWick);
+    wick.position.set(x, (ypos(d.h)+ypos(d.l))/2, 0);
+    group.add(wick);
+
+    var vh = d.v/VMAX*110;
+    var vol = new THREE.Mesh(new THREE.BoxGeometry(bw, vh, bw*0.7), matVol);
+    vol.position.set(x, -180 + vh/2, -150);
+    group.add(vol);
+  }
+
+  /* 바닥 격자 */
+  var grid = new THREE.GridHelper(SPAN, 12, 0x2E5A50, 0x1E4139);
+  grid.position.set(0,-190,-75);
+  grid.material.transparent = true; grid.material.opacity = 0.5;
+  group.add(grid);
+
+  var rotX = 0, rotY = 0, targetX = 0, targetY = 0, spin=false, dragging=false;
+  var lastX=0, lastY=0, zoom=620;
+
+  var el = renderer.domElement;
+  el.addEventListener("pointerdown", function(e){
+    dragging=true; spin=false; host.classList.add("dragging");
+    lastX=e.clientX; lastY=e.clientY;
+    document.getElementById("glHint").classList.add("hide");
+    setViewPressed(null);
+  });
+  window.addEventListener("pointermove", function(e){
+    if(!dragging) return;
+    targetY += (e.clientX-lastX)*0.006;
+    targetX += (e.clientY-lastY)*0.005;
+    targetX = Math.max(-1.15, Math.min(1.15, targetX));
+    lastX=e.clientX; lastY=e.clientY;
+  });
+  window.addEventListener("pointerup", function(){ dragging=false; host.classList.remove("dragging"); });
+  el.addEventListener("wheel", function(e){
+    e.preventDefault();
+    zoom = Math.max(240, Math.min(1000, zoom + e.deltaY*0.6));
+  }, {passive:false});
+
+  function setCut(){
+    var pos = parseInt(document.getElementById("cutPos").value,10)/100;
+    var wid = parseInt(document.getElementById("cutWidth").value,10)/100;
+    var centerBar = pos*(N-1);
+    var halfBars = wid*N/2;
+    var a = Math.max(0, centerBar-halfBars), b = Math.min(N, centerBar+halfBars);
+    planeA.constant = -(-half + a*step);
+    planeB.constant = (-half + b*step);
+    document.getElementById("cutPosVal").textContent = (Math.round(centerBar)+1)+"일차";
+    document.getElementById("cutWidthVal").textContent = Math.round(wid*N)+"일";
+  }
+  document.getElementById("cutPos").addEventListener("input", setCut);
+  document.getElementById("cutWidth").addEventListener("input", setCut);
+  setCut();
+
+  function setViewPressed(name){
+    var chips = document.querySelectorAll('[data-view]');
+    for(var i=0;i<chips.length;i++){
+      chips[i].setAttribute("aria-pressed", chips[i].getAttribute("data-view")===name ? "true":"false");
+    }
+  }
+  var viewChips = document.querySelectorAll('[data-view]');
+  for(var vi=0; vi<viewChips.length; vi++){
+    viewChips[vi].addEventListener("click", function(){
+      var v=this.getAttribute("data-view");
+      setViewPressed(v);
+      document.getElementById("glHint").classList.add("hide");
+      spin = (v==="spin");
+      if(v==="front"){ targetX=0; targetY=0; zoom=620; }
+      if(v==="iso"){ targetX=0.34; targetY=-0.62; zoom=640; }
+      if(v==="top"){ targetX=1.05; targetY=0; zoom=700; }
+    });
+  }
+
+  function tick(){
+    requestAnimationFrame(tick);
+    if(spin) targetY += 0.004;
+    rotX += (targetX-rotX)*0.12;
+    rotY += (targetY-rotY)*0.12;
+    group.rotation.x = rotX;
+    group.rotation.y = rotY;
+    camera.position.z += (zoom-camera.position.z)*0.12;
+    renderer.render(scene,camera);
+  }
+  tick();
+
+  window.addEventListener("resize", function(){
+    var w2=host.clientWidth, h2=host.clientHeight;
+    if(!w2||!h2) return;
+    camera.aspect=w2/h2; camera.updateProjectionMatrix(); renderer.setSize(w2,h2);
+  });
+  three.ready = true;
+}
+
+/* =========================================================
+   4. 자연어 → 차트
+   ========================================================= */
+var nl = new ChartView(document.getElementById("nlCanvas"));
+nl.draw();
+var nlReadout = document.getElementById("nlReadout");
+var nlHint = document.getElementById("nlHint");
+
+function sma(n){
+  var out=[], sum=0;
+  for(var i=0;i<N;i++){
+    sum += DATA[i].c;
+    if(i>=n) sum -= DATA[i-n].c;
+    out.push(i>=n-1 ? sum/n : null);
+  }
+  return out;
+}
+function surgeRange(){
+  var best={s:0,i0:0,i1:0};
+  for(var i=0;i<N-8;i++){
+    var s=0; for(var j=i;j<i+10 && j<N;j++) s+=DATA[j].v;
+    if(s>best.s) best={s:s,i0:i,i1:Math.min(N-1,i+9)};
+  }
+  return best;
+}
+function runNL(text){
+  var t = text.trim();
+  if(!t) return;
+  nl.overlays = [];
+  var parsed = [], added = 0;
+
+  parsed.push(["종목","나인샘플전자 (099990)"]);
+  var period = /3개월|90일|분기/.test(t) ? "최근 90거래일"
+             : /1개월|30일/.test(t) ? "최근 30거래일"
+             : /1년|12개월/.test(t) ? "최근 90거래일 (보유 데이터 한도)"
+             : "최근 90거래일 (기본값)";
+  parsed.push(["기간", period]);
+
+  if(/헤드앤숄더|헤드 앤 숄더|h&s|머리어깨/i.test(t)){
+    var peaks = HIGHS.slice().sort(function(a,b){return b.p-a.p;});
+    var head=peaks[0], left=null, right=null, k;
+    for(k=0;k<peaks.length;k++) if(peaks[k].i<head.i-6){ left=peaks[k]; break; }
+    for(k=0;k<peaks.length;k++) if(peaks[k].i>head.i+6){ right=peaks[k]; break; }
+    if(left&&right){
+      var t1=null,t2=null;
+      for(k=0;k<LOWS.length;k++){
+        if(LOWS[k].i>left.i&&LOWS[k].i<head.i&&(!t1||LOWS[k].p<t1.p)) t1=LOWS[k];
+        if(LOWS[k].i>head.i&&LOWS[k].i<right.i&&(!t2||LOWS[k].p<t2.p)) t2=LOWS[k];
+      }
+      if(t1&&t2){
+        nl.overlays.push({kind:"pattern",pts:[left,t1,head,t2,right],neck:[t1,t2],text:"헤드앤숄더"});
+        parsed.push(["패턴","헤드앤숄더 · 넥라인 "+won((t1.p+t2.p)/2)]);
+        added++;
+      }
+    }
+  }
+  if(/거래량|급증|volume/i.test(t)){
+    var s = surgeRange();
+    nl.overlays.push({kind:"zone", i0:s.i0, i1:s.i1, text:"거래량 급증"});
+    parsed.push(["필터","10일 누적 거래량 최대 구간 "+(s.i0+1)+"~"+(s.i1+1)+"일차"]);
+    added++;
+  }
+  var maMatch = t.match(/(\d+)\s*일\s*(이동평균|이평|이동 평균|MA)/i);
+  if(maMatch || /이동평균|이평선|이평/.test(t)){
+    var span = maMatch ? parseInt(maMatch[1],10) : 20;
+    span = Math.max(3, Math.min(60, span));
+    nl.overlays.push({kind:"ma", vals:sma(span), text:span+"일 이동평균"});
+    parsed.push(["지표", span+"일 단순이동평균"]);
+    added++;
+  }
+  if(/지지|저항|지지선|저항선/.test(t)){
+    var pool = LOWS.concat(HIGHS), lastC = DATA[N-1].c, best=null, bd=1e18;
+    for(var q=0;q<pool.length;q++){
+      var d=Math.abs(pool[q].p-lastC);
+      if(d<bd && d>(PMAX-PMIN)*0.02){ bd=d; best=pool[q]; }
+    }
+    if(best){
+      nl.overlays.push({kind:"hline", price:best.p, text: best.p>lastC?"저항":"지지"});
+      parsed.push(["레벨",(best.p>lastC?"저항":"지지")+" "+won(best.p)]);
+      added++;
+    }
+  }
+  if(/피보나치|되돌림|fib/i.test(t)){
+    var lo=1e18, hi=-1e18, li=0;
+    for(var z=0;z<N;z++){ if(DATA[z].l<lo){lo=DATA[z].l; li=z;} if(DATA[z].h>hi) hi=DATA[z].h; }
+    nl.overlays.push({kind:"fib", hi:hi, lo:lo, i0:Math.max(0,li-2)});
+    parsed.push(["도구","피보나치 되돌림 "+won(lo)+" ~ "+won(hi)]);
+    added++;
+  }
+  if(/급등|급락|확대|줌/.test(t)){
+    nl.overlays.push({kind:"zone", i0:33, i1:45, text:"급등 구간"});
+    parsed.push(["구간","일간 상승폭 상위 구간 34~46일차"]);
+    added++;
+  }
+  var wants3D = /3d|삼디|입체|돌려|회전/i.test(t);
+  if(wants3D) parsed.push(["뷰","3D 캔들·거래량 뷰로 전환"]);
+
+  if(!added && !wants3D){
+    parsed.push(["결과","해석 가능한 지시를 찾지 못했습니다"]);
+    parsed.push(["다시 시도","패턴·지표·구간 중 하나를 문장에 넣어 보세요"]);
+  }
+
+  nlHint.classList.add("hide");
+  for(var m=0;m<nl.overlays.length;m++) nl.overlays[m].t = 0;
+  nl.draw();
+  if(reduceMotion()){
+    for(var n2=0;n2<nl.overlays.length;n2++) nl.overlays[n2].t=1;
+    nl.draw();
+  }else{
+    var t0=performance.now();
+    (function step(now){
+      var k=Math.min(1,(now-t0)/800), any=false;
+      for(var m2=0;m2<nl.overlays.length;m2++){
+        var d2=m2*0.18;
+        var kk=Math.max(0, Math.min(1,(k-d2)/(1-d2||1)));
+        nl.overlays[m2].t = 1-Math.pow(1-kk,3);
+        if(kk<1) any=true;
+      }
+      nl.draw();
+      if(k<1||any) requestAnimationFrame(step);
+    })(t0);
+  }
+
+  var html = '<h3>해석된 지시</h3><ul class="parsed">';
+  for(var r=0;r<parsed.length;r++){
+    html += '<li style="animation-delay:'+(r*70)+'ms"><i>'+String(r+1).padStart(2,"0")+'</i><div><b>'+
+            parsed[r][0]+'</b> · '+parsed[r][1]+'</div></li>';
+  }
+  html += '</ul>';
+  nlReadout.innerHTML = html;
+
+  if(wants3D) setTimeout(function(){ selectTab(1); }, 700);
+}
+document.getElementById("nlGo").addEventListener("click", function(){
+  runNL(document.getElementById("nlInput").value);
+});
+document.getElementById("nlInput").addEventListener("keydown", function(e){
+  if(e.key==="Enter") runNL(this.value);
+});
+var presetBtns = document.getElementById("nlPresets").querySelectorAll(".chip");
+for(var pb=0; pb<presetBtns.length; pb++){
+  presetBtns[pb].addEventListener("click", function(){
+    document.getElementById("nlInput").value = this.textContent;
+    runNL(this.textContent);
+  });
+}
+
+/* =========================================================
+   5. 탭
+   ========================================================= */
+var tabs = document.querySelectorAll(".tab");
+var panels = document.querySelectorAll(".panel");
+function selectTab(idx){
+  for(var i=0;i<tabs.length;i++){
+    tabs[i].setAttribute("aria-selected", i===idx?"true":"false");
+    panels[i].classList.toggle("on", i===idx);
+  }
+  if(idx===1){ init3D(); }
+  if(idx===0){ sketch.resize(); sketch.draw(); }
+  if(idx===2){ nl.resize(); nl.draw(); }
+}
+for(var ti=0; ti<tabs.length; ti++){
+  (function(i){ tabs[i].addEventListener("click", function(){ selectTab(i); }); })(ti);
+}
+
+})();
+</script>
+</body>
+</html>
