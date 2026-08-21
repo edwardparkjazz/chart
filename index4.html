@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>NineMemos · AI 차트 랩 시연 v2</title>
+<style>
+:root{
+  --slate:#0C1A17;
+  --board-solid:#132722;
+  --rule:#24413A;
+  --rule-soft:#1C332D;
+  --chalk:#E9EFE9;
+  --chalk-dim:#8FA79E;
+  --up:#E4453A;
+  --down:#2E6FE8;
+  --brass:#D8B45A;
+  --mint:#7FD4B8;
+  --peri:#9DA8FF;
+  --pink:#E48ABF;
+  --font-body:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+  --font-mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,"Courier New",monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--slate);color:var(--chalk);font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;line-height:1.55;overflow-x:hidden;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(120% 80% at 15% -10%, #1C3B33 0%, transparent 55%),
+             radial-gradient(90% 70% at 90% 0%, #17322C 0%, transparent 60%);
+}
+.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:26px 18px 60px;}
+
+.eyebrow{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--brass);margin:0 0 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.eyebrow .rule{flex:1;height:1px;background:var(--rule);min-width:24px;}
+h1{font-size:clamp(27px,4.8vw,48px);line-height:1.09;margin:0 0 13px;font-weight:800;letter-spacing:-.03em;}
+h1 em{font-style:normal;color:var(--brass);}
+.lede{max-width:64ch;color:var(--chalk-dim);font-size:15px;margin:0;}
+
+.tabs{display:flex;margin:28px 0 0;border-bottom:1px solid var(--rule);flex-wrap:wrap;}
+.tab{
+  appearance:none;background:none;border:0;border-bottom:2px solid transparent;color:var(--chalk-dim);
+  font-family:var(--font-body);font-size:14px;font-weight:600;padding:12px 15px;cursor:pointer;
+  display:flex;align-items:baseline;gap:8px;margin-bottom:-1px;transition:color .18s,border-color .18s;
+}
+.tab .num{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;opacity:.7;}
+.tab:hover{color:var(--chalk);}
+.tab[aria-selected="true"]{color:var(--chalk);border-bottom-color:var(--brass);}
+.tab:focus-visible{outline:2px solid var(--brass);outline-offset:2px;border-radius:4px;}
+
+.panel{display:none;}
+.panel.on{display:block;}
+.stage{display:grid;grid-template-columns:1fr 296px;gap:16px;margin-top:18px;align-items:start;}
+@media (max-width:980px){.stage{grid-template-columns:1fr;}}
+
+.board{
+  position:relative;background:var(--board-solid);border:1px solid var(--rule);
+  border-radius:10px;overflow:hidden;box-shadow:inset 0 1px 0 #ffffff10;
+}
+.board-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:9px 13px;border-bottom:1px solid var(--rule);flex-wrap:wrap;
+}
+.ticker{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;}
+.ticker b{font-size:15px;font-weight:700;letter-spacing:-.01em;}
+.ticker .code,.ticker .px{font-family:var(--font-mono);font-size:11.5px;color:var(--chalk-dim);}
+.ticker .px em{font-style:normal;color:var(--up);}
+.tagx{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--chalk-dim);border:1px solid var(--rule);padding:3px 7px;border-radius:3px;
+}
+canvas{display:block;width:100%;touch-action:none;}
+#sketchCanvas,#nlCanvas{height:520px;}
+#sketchCanvas{cursor:crosshair;}
+#gl{height:470px;cursor:grab;}
+#gl.dragging{cursor:grabbing;}
+@media (max-width:980px){#sketchCanvas,#nlCanvas{height:430px;} #gl{height:340px;}}
+
+.hint{
+  position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);text-align:center;
+  pointer-events:none;transition:opacity .4s;font-size:13px;color:var(--chalk-dim);width:min(90%,360px);
+  background:#0C1A17d9;padding:14px 16px;border-radius:8px;border:1px solid var(--rule);
+}
+.hint .big{display:block;font-size:16px;color:var(--chalk);font-weight:600;margin-bottom:6px;letter-spacing:-.01em;}
+.hint.hide{opacity:0;}
+
+.rail{display:flex;flex-direction:column;gap:11px;}
+.card{background:#ffffff07;border:1px solid var(--rule);border-radius:10px;padding:13px;}
+.card h3{
+  margin:0 0 9px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--brass);font-weight:600;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.card h3 span{color:var(--chalk-dim);letter-spacing:.06em;}
+.group-label{
+  font-size:10.5px;font-family:var(--font-mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--chalk-dim);margin:11px 0 6px;
+}
+.group-label:first-of-type{margin-top:0;}
+.tools{display:flex;flex-wrap:wrap;gap:5px;}
+.chip{
+  appearance:none;font-family:var(--font-body);font-size:11.5px;font-weight:500;
+  background:#ffffff0a;color:var(--chalk-dim);border:1px solid var(--rule);
+  padding:5px 9px;border-radius:999px;cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.chip:hover{color:var(--chalk);border-color:#3B6459;}
+.chip[aria-pressed="true"]{background:var(--brass);color:#10211C;border-color:var(--brass);font-weight:600;}
+.chip[aria-pressed="true"][data-tone="mint"]{background:var(--mint);border-color:var(--mint);}
+.chip[aria-pressed="true"][data-tone="peri"]{background:var(--peri);border-color:var(--peri);}
+.chip:focus-visible{outline:2px solid var(--brass);outline-offset:2px;}
+.chip:disabled{opacity:.85;cursor:default;}
+
+.readout{min-height:120px;}
+.empty{color:var(--chalk-dim);font-size:12.5px;margin:0;}
+.result-type{font-size:17px;font-weight:700;letter-spacing:-.02em;margin:0 0 2px;}
+.result-sub{font-size:12.5px;color:var(--chalk-dim);margin:0 0 10px;}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px dashed var(--rule);font-size:12.5px;}
+.kv span{color:var(--chalk-dim);}
+.kv b{font-family:var(--font-mono);font-weight:500;letter-spacing:-.01em;}
+.conf-bar{height:3px;background:#ffffff14;border-radius:2px;overflow:hidden;margin-top:5px;}
+.conf-bar i{display:block;height:100%;background:var(--brass);width:0;transition:width .6s cubic-bezier(.2,.8,.2,1);}
+
+.slider label{display:flex;justify-content:space-between;font-size:12px;color:var(--chalk-dim);margin-bottom:6px;}
+.slider label b{font-family:var(--font-mono);color:var(--chalk);font-weight:500;}
+input[type=range]{width:100%;appearance:none;height:3px;background:#ffffff18;border-radius:2px;outline:none;}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:15px;height:15px;border-radius:50%;background:var(--brass);cursor:pointer;border:2px solid var(--board-solid);}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--brass);cursor:pointer;border:2px solid var(--board-solid);}
+input[type=range]:focus-visible{outline:2px solid var(--brass);outline-offset:4px;}
+
+.prompt-row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+.prompt-row input[type=text]{
+  flex:1;min-width:240px;background:#ffffff08;border:1px solid var(--rule);border-radius:8px;
+  color:var(--chalk);font-family:var(--font-body);font-size:14px;padding:11px 13px;
+}
+.prompt-row input[type=text]::placeholder{color:#6C857C;}
+.prompt-row input[type=text]:focus{outline:none;border-color:var(--brass);}
+.go{
+  appearance:none;background:var(--brass);color:#10211C;border:0;border-radius:8px;
+  font-family:var(--font-body);font-size:14px;font-weight:700;padding:11px 20px;cursor:pointer;
+}
+.go:hover{filter:brightness(1.08);}
+.go:focus-visible{outline:2px solid var(--chalk);outline-offset:2px;}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}
+
+.parsed{list-style:none;margin:0;padding:0;}
+.parsed li{
+  display:flex;gap:8px;align-items:flex-start;font-size:12.5px;padding:6px 0;
+  border-top:1px dashed var(--rule);opacity:0;transform:translateY(4px);
+  animation:rise .34s cubic-bezier(.2,.8,.2,1) forwards;
+}
+.parsed li:first-child{border-top:0;}
+.parsed li i{font-style:normal;color:var(--brass);font-family:var(--font-mono);font-size:10px;padding-top:3px;}
+.parsed li b{font-weight:600;}
+@keyframes rise{to{opacity:1;transform:none;}}
+
+.roadmap{margin-top:52px;border-top:1px solid var(--rule);padding-top:26px;}
+.roadmap h2{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:0 0 4px;}
+.roadmap p.sub{color:var(--chalk-dim);font-size:13.5px;margin:0 0 20px;}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+@media (max-width:760px){.steps{grid-template-columns:1fr;}}
+.step{border-top:2px solid var(--rule);padding-top:12px;}
+.step.now{border-top-color:var(--brass);}
+.step .phase{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--brass);margin:0;}
+.step h4{margin:6px 0 6px;font-size:15px;font-weight:700;letter-spacing:-.01em;}
+.step p{margin:0;font-size:13px;color:var(--chalk-dim);}
+.step ul{margin:8px 0 0;padding-left:16px;font-size:12.5px;color:var(--chalk-dim);}
+.step li{margin-bottom:3px;}
+footer{margin-top:36px;font-size:11.5px;color:#6C857C;font-family:var(--font-mono);letter-spacing:.03em;}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">NineMemos Chart Lab · 내부 시연용 프로토타입<span class="rule"></span>v0.2 · 기술지표 15종 연동</p>
+  <h1>대충 그으면,<br><em>AI가 정확한 지표로</em> 바꿔 드립니다.</h1>
+  <p class="lede">스마트 칠판이 손그림을 정밀한 함수 그래프로 바꾸는 방식을, 나인메모스가 이미 서비스 중인 기술적 지표 위에 올렸습니다.
+  손으로 그은 선은 실제 고점·저점과 지표 라인에 스냅되고, 문장으로 지시하면 지표 조합이 그대로 켜집니다.</p>
+
+  <div class="tabs" role="tablist" aria-label="시연 모드">
+    <button class="tab" role="tab" aria-selected="true" aria-controls="p1" id="t1"><span class="num">01</span>스케치 인식</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="p2" id="t2"><span class="num">02</span>3D 지표 레이어</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="p3" id="t3"><span class="num">03</span>말로 그리는 차트</button>
+  </div>
+
+  <!-- ============ PANEL 1 ============ -->
+  <section class="panel on" id="p1" role="tabpanel" aria-labelledby="t1">
+    <div class="stage">
+      <div class="board">
+        <div class="board-head">
+          <div class="ticker">
+            <b>나인샘플전자</b><span class="code">099990 · KOSPI · 일봉</span>
+            <span class="px" id="px1">—</span>
+          </div>
+          <span class="tagx">합성 데이터 260거래일</span>
+        </div>
+        <canvas id="sketchCanvas"></canvas>
+        <div class="hint" id="sketchHint">
+          <span class="big">차트 위에 손으로 그려 보세요</span>
+          저점을 따라 비스듬히 · 가로로 한 줄 · 위아래로 크게 · 지그재그로 산 세 개 —
+          그린 모양을 판별해 정밀 도구로 스냅합니다. 지표를 켜 두면 지표 라인에도 스냅됩니다.
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="card readout" id="sketchReadout">
+          <h3>AI 인식 결과</h3>
+          <p class="empty">차트 위에 선을 그으면 형태를 분석해 정밀 도구로 변환합니다.</p>
+        </div>
+
+        <div class="card">
+          <h3>기술적 지표 <span id="onCount">0개</span></h3>
+          <p class="group-label">추세 · 이동평균</p>
+          <div class="tools" data-family="trend"></div>
+          <p class="group-label">변동성 · 가격대</p>
+          <div class="tools" data-family="band"></div>
+          <p class="group-label">모멘텀 (하단 패널 · 1개 선택)</p>
+          <div class="tools" data-family="osc"></div>
+          <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="chip" id="undoBtn">마지막 하나 지우기</button>
+            <button class="chip" id="clearBtn">그린 것 전체 지우기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PANEL 2 ============ -->
+  <section class="panel" id="p2" role="tabpanel" aria-labelledby="t2">
+    <div class="stage">
+      <div class="board">
+        <div class="board-head">
+          <div class="ticker">
+            <b>나인샘플전자</b><span class="code">3D 뷰 · 캔들 / 지표 / 거래량 3중 평면</span>
+          </div>
+          <span class="tagx">드래그로 회전</span>
+        </div>
+        <div id="gl"></div>
+        <div class="hint" id="glHint">
+          <span class="big">화면을 밀어 돌려 보세요</span>
+          앞쪽은 캔들, 가운데는 켜 둔 지표(이동평균·볼린저), 뒤쪽은 거래량과 모멘텀 지표입니다.
+          휠로 확대하고 슬라이더로 구간을 잘라 보세요.
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="card">
+          <h3>단면 잘라보기</h3>
+          <div class="slider">
+            <label for="cutPos">구간 중심<b id="cutPosVal">—</b></label>
+            <input type="range" id="cutPos" min="0" max="100" value="50" />
+          </div>
+          <div class="slider" style="margin-top:13px;">
+            <label for="cutWidth">구간 폭<b id="cutWidthVal">—</b></label>
+            <input type="range" id="cutWidth" min="6" max="100" value="100" />
+          </div>
+          <p class="empty" style="margin-top:11px;">폭을 좁히면 그 구간의 캔들과 지표만 남습니다. 급등 구간을 잘라 각도를 바꾸면 거래량·모멘텀 평면과의 시차가 드러납니다.</p>
+        </div>
+        <div class="card">
+          <h3>시점</h3>
+          <div class="tools">
+            <button class="chip" data-view="front" aria-pressed="true">정면</button>
+            <button class="chip" data-view="iso" aria-pressed="false">비스듬히</button>
+            <button class="chip" data-view="top" aria-pressed="false">위에서</button>
+            <button class="chip" data-view="spin" aria-pressed="false">자동 회전</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>레이어</h3>
+          <div class="kv"><span>앞 평면 (z=0)</span><b>캔들</b></div>
+          <div class="kv"><span>중간 평면</span><b id="lay2">—</b></div>
+          <div class="kv"><span>뒤 평면</span><b>거래량 · 모멘텀</b></div>
+          <p class="empty" style="margin-top:10px;">레이어 구성은 01번 탭에서 켠 지표를 그대로 따라갑니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PANEL 3 ============ -->
+  <section class="panel" id="p3" role="tabpanel" aria-labelledby="t3">
+    <div class="stage">
+      <div class="board">
+        <div class="board-head">
+          <div class="ticker">
+            <b>나인샘플전자</b><span class="code">099990 · 자연어 지시 결과</span>
+          </div>
+          <span class="tagx">합성 데이터</span>
+        </div>
+        <canvas id="nlCanvas"></canvas>
+        <div class="hint" id="nlHint">
+          <span class="big">문장으로 지시하면 지표가 켜집니다</span>
+          지표 이름·기간·조건을 문장 안에 넣어 보세요. 조건에 맞는 날짜는 차트에 직접 표시됩니다.
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="card readout" id="nlReadout">
+          <h3>해석된 지시</h3>
+          <p class="empty">문장에서 지표·기간·조건·패턴을 뽑아 차트 명령으로 변환합니다.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="prompt-row">
+      <input type="text" id="nlInput" placeholder="예: 볼린저밴드 하단 터치하고 RSI 30 아래인 날 찾아줘" />
+      <button class="go" id="nlGo">차트 그리기</button>
+    </div>
+    <div class="presets" id="nlPresets">
+      <button class="chip">볼린저밴드 하단 터치하고 RSI 30 아래인 날 찾아줘</button>
+      <button class="chip">MACD 골든크로스 시점에 거래량 급증한 구간</button>
+      <button class="chip">5일선이 20일선 위로 뚫은 날 전부 표시해줘</button>
+      <button class="chip">52주 신고가 근처에서 스토캐스틱 과매수 구간</button>
+      <button class="chip">파라볼릭 SAR이랑 60일 지수이동평균 같이 그려줘</button>
+      <button class="chip">3D로 돌려서 보여줘</button>
+    </div>
+  </section>
+
+  <!-- ============ ROADMAP ============ -->
+  <section class="roadmap">
+    <h2>나인메모스에 얹는 순서</h2>
+    <p class="sub">이미 서비스 중인 지표 엔진 위에 얹는 구조라, 신규 데이터 파이프라인 없이 프론트 레이어만 추가하면 됩니다.</p>
+    <div class="steps">
+      <div class="step now">
+        <p class="phase">1단계 · 지금 붙일 수 있음</p>
+        <h4>스케치 → 정밀 도구·지표 스냅</h4>
+        <p>손으로 그은 선을 실제 고점·저점과 이미 계산된 지표 라인에 스냅합니다.</p>
+        <ul>
+          <li>스트로크 기하 특징(직진도·기울기·전환점) 규칙 판별</li>
+          <li>기존 지표 시계열을 스냅 후보로 재사용 — 추가 연산 없음</li>
+          <li>애매할 때만 LLM에 형태 서술을 넘겨 후보 제시</li>
+        </ul>
+      </div>
+      <div class="step">
+        <p class="phase">2단계 · 임팩트 담당</p>
+        <h4>3D 지표 레이어</h4>
+        <p>가격·지표·거래량을 깊이축으로 분리해, 2D에서 겹쳐 보이던 관계를 분리해 보여줍니다.</p>
+        <ul>
+          <li>캔들 / 이동평균·볼린저 / 거래량·모멘텀 3중 평면</li>
+          <li>클리핑 평면으로 구간 단면 절단</li>
+          <li>기본은 2D, "3D로 보기" 토글로 진입</li>
+        </ul>
+      </div>
+      <div class="step">
+        <p class="phase">3단계 · 나인메모스다운 지점</p>
+        <h4>문장 → 지표 조합 + 조건 스캔</h4>
+        <p>지표를 켜는 데서 끝나지 않고, 조건에 맞는 날짜를 직접 찾아 표시합니다.</p>
+        <ul>
+          <li>문장 → 지표·파라미터·조건 JSON 스키마 변환</li>
+          <li>조건 충족일 스캔 후 차트에 마킹 + 근거 노출</li>
+          <li>Hermes 리포트·메모·뉴스와 같은 화면에서 연결</li>
+        </ul>
+      </div>
+    </div>
+    <footer>모든 시세는 시연용 합성 데이터입니다 · 본 화면은 의사결정 보조 목적이며 투자 판단의 최종 책임은 이용자에게 있습니다.</footer>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   0. 합성 시세 (260거래일)
+   ========================================================= */
+var TOTAL = 260, VIS = 120, I0 = TOTAL - VIS;
+function lcg(seed){ var s=seed; return function(){ s=(s*1664525+1013904223)%4294967296; return s/4294967296; }; }
+var rnd = lcg(20260821);
+
+var DATA = (function(){
+  var arr=[], price=52000;
+  for(var i=0;i<TOTAL;i++){
+    var drift = 60;
+    if(i>60 && i<95)  drift = 420;
+    if(i>=95 && i<130) drift = -320;
+    if(i>=150 && i<170) drift = 620;
+    if(i>=170 && i<190) drift = -540;
+    if(i>=200 && i<216) drift = 880;   // 급등
+    if(i>=216 && i<232) drift = -460;  // 조정
+    if(i>=244) drift = 430;
+    var o=price, c=o+drift+(rnd()-0.5)*1750;
+    var h=Math.max(o,c)+rnd()*820, l=Math.min(o,c)-rnd()*820;
+    var v=1.5e6+rnd()*1.0e6;
+    if(i>=200 && i<216) v*=2.9;
+    if(i>=150 && i<162) v*=1.8;
+    if(i>=244) v*=1.6;
+    arr.push({o:o,h:h,l:l,c:c,v:v});
+    price=c;
+  }
+  return arr;
+})();
+
+var DATES = (function(){
+  var out=[], d=new Date(2026,7,21);
+  for(var i=0;i<TOTAL;i++){
+    out.unshift(new Date(d));
+    do { d.setDate(d.getDate()-1); } while(d.getDay()===0||d.getDay()===6);
+  }
+  return out;
+})();
+function dstr(i){ var d=DATES[i]; return (d.getMonth()+1)+"/"+d.getDate(); }
+function dfull(i){ var d=DATES[i]; return d.getFullYear()+"."+String(d.getMonth()+1).padStart(2,"0")+"."+String(d.getDate()).padStart(2,"0"); }
+
+var UP="#E4453A", DOWN="#2E6FE8", BRASS="#D8B45A", MINT="#7FD4B8", PERI="#9DA8FF", PINK="#E48ABF",
+    CHALK="#E9EFE9", DIM="#8FA79E", RULE="#24413A";
+function won(v){ return Math.round(v).toLocaleString("ko-KR"); }
+function num(v,d){ return v==null?"—":v.toFixed(d===undefined?2:d); }
+function reduceMotion(){ return window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+
+/* =========================================================
+   1. 지표 계산
+   ========================================================= */
+var C = DATA.map(function(d){return d.c;});
+var Hh = DATA.map(function(d){return d.h;});
+var Ll = DATA.map(function(d){return d.l;});
+var V  = DATA.map(function(d){return d.v;});
+
+function SMA(src,n){
+  var out=[],sum=0;
+  for(var i=0;i<src.length;i++){
+    sum+=src[i]; if(i>=n) sum-=src[i-n];
+    out.push(i>=n-1? sum/n : null);
+  }
+  return out;
+}
+function EMA(src,n){
+  var out=[],k=2/(n+1),prev=null,sum=0;
+  for(var i=0;i<src.length;i++){
+    if(i<n-1){ sum+=src[i]; out.push(null); continue; }
+    if(i===n-1){ sum+=src[i]; prev=sum/n; out.push(prev); continue; }
+    prev = src[i]*k + prev*(1-k); out.push(prev);
+  }
+  return out;
+}
+function WMA(src,n){
+  var out=[],den=n*(n+1)/2;
+  for(var i=0;i<src.length;i++){
+    if(i<n-1){ out.push(null); continue; }
+    var s=0; for(var j=0;j<n;j++) s+=src[i-n+1+j]*(j+1);
+    out.push(s/den);
+  }
+  return out;
+}
+function BOLL(n,k){
+  var m=SMA(C,n), up=[], lo=[], w=[];
+  for(var i=0;i<C.length;i++){
+    if(m[i]==null){ up.push(null); lo.push(null); w.push(null); continue; }
+    var s=0; for(var j=i-n+1;j<=i;j++) s+=Math.pow(C[j]-m[i],2);
+    var sd=Math.sqrt(s/n);
+    up.push(m[i]+k*sd); lo.push(m[i]-k*sd); w.push((2*k*sd)/m[i]*100);
+  }
+  return {mid:m, up:up, lo:lo, width:w};
+}
+function ENV(n,pct){
+  var m=SMA(C,n);
+  return { mid:m,
+    up:m.map(function(x){return x==null?null:x*(1+pct);}),
+    lo:m.map(function(x){return x==null?null:x*(1-pct);}) };
+}
+function PSAR(step,maxAf){
+  var sar=[], af=step, ep=Hh[0], up=true, cur=Ll[0];
+  sar.push(null);
+  for(var i=1;i<C.length;i++){
+    var next = cur + af*(ep-cur);
+    if(up){
+      next=Math.min(next, Ll[i-1], Ll[Math.max(0,i-2)]);
+      if(Ll[i]<next){ up=false; next=ep; ep=Ll[i]; af=step; }
+      else if(Hh[i]>ep){ ep=Hh[i]; af=Math.min(maxAf, af+step); }
+    }else{
+      next=Math.max(next, Hh[i-1], Hh[Math.max(0,i-2)]);
+      if(Hh[i]>next){ up=true; next=ep; ep=Hh[i]; af=step; }
+      else if(Ll[i]<ep){ ep=Ll[i]; af=Math.min(maxAf, af+step); }
+    }
+    cur=next; sar.push({v:cur, up:up});
+  }
+  return sar;
+}
+function ROLLMAX(src,n){
+  var out=[];
+  for(var i=0;i<src.length;i++){
+    var s=Math.max(0,i-n+1), m=-1e18;
+    for(var j=s;j<=i;j++) m=Math.max(m,src[j]);
+    out.push(m);
+  }
+  return out;
+}
+function ROLLMIN(src,n){
+  var out=[];
+  for(var i=0;i<src.length;i++){
+    var s=Math.max(0,i-n+1), m=1e18;
+    for(var j=s;j<=i;j++) m=Math.min(m,src[j]);
+    out.push(m);
+  }
+  return out;
+}
+function RSI(n){
+  var out=[],ag=0,al=0;
+  for(var i=0;i<C.length;i++){
+    if(i===0){ out.push(null); continue; }
+    var ch=C[i]-C[i-1], g=Math.max(0,ch), l=Math.max(0,-ch);
+    if(i<=n){ ag+=g/n; al+=l/n; out.push(i===n? 100-100/(1+ag/(al||1e-9)) : null); continue; }
+    ag=(ag*(n-1)+g)/n; al=(al*(n-1)+l)/n;
+    out.push(100-100/(1+ag/(al||1e-9)));
+  }
+  return out;
+}
+function MACD(f,s,g){
+  var ef=EMA(C,f), es=EMA(C,s), line=[], i;
+  for(i=0;i<C.length;i++) line.push(ef[i]==null||es[i]==null?null:ef[i]-es[i]);
+  var valid=line.filter(function(x){return x!=null;});
+  var sigV=EMA(valid,g), sig=[], k=0;
+  for(i=0;i<line.length;i++) sig.push(line[i]==null?null:sigV[k++]);
+  var hist=line.map(function(x,i2){ return x==null||sig[i2]==null?null:x-sig[i2]; });
+  return {line:line, sig:sig, hist:hist};
+}
+function STOCH(n,k1,k2){
+  var fast=[], i;
+  for(i=0;i<C.length;i++){
+    if(i<n-1){ fast.push(null); continue; }
+    var hi=-1e18, lo=1e18;
+    for(var j=i-n+1;j<=i;j++){ hi=Math.max(hi,Hh[j]); lo=Math.min(lo,Ll[j]); }
+    fast.push((C[i]-lo)/((hi-lo)||1e-9)*100);
+  }
+  function smooth(src,p){
+    var o=[],buf=[];
+    for(var q=0;q<src.length;q++){
+      if(src[q]==null){ o.push(null); continue; }
+      buf.push(src[q]); if(buf.length>p) buf.shift();
+      o.push(buf.length<p?null:buf.reduce(function(a,b){return a+b;},0)/p);
+    }
+    return o;
+  }
+  var K=smooth(fast,k1);
+  return {k:K, d:smooth(K,k2)};
+}
+function CMF(n){
+  var mfv=[], i;
+  for(i=0;i<C.length;i++){
+    var r=Hh[i]-Ll[i];
+    mfv.push(r===0?0:((C[i]-Ll[i])-(Hh[i]-C[i]))/r*V[i]);
+  }
+  var out=[];
+  for(i=0;i<C.length;i++){
+    if(i<n-1){ out.push(null); continue; }
+    var a=0,b=0;
+    for(var j=i-n+1;j<=i;j++){ a+=mfv[j]; b+=V[j]; }
+    out.push(a/(b||1));
+  }
+  return out;
+}
+function PSY(n){
+  var out=[];
+  for(var i=0;i<C.length;i++){
+    if(i<n){ out.push(null); continue; }
+    var up=0;
+    for(var j=i-n+1;j<=i;j++) if(C[j]>C[j-1]) up++;
+    out.push(up/n*100);
+  }
+  return out;
+}
+function MOM(n){
+  var out=[];
+  for(var i=0;i<C.length;i++) out.push(i<n?null:C[i]-C[i-n]);
+  return out;
+}
+function TRIX(n,sg){
+  function ema1(src,p){
+    var o=[],k=2/(p+1),prev=null,cnt=0,sum=0;
+    for(var i=0;i<src.length;i++){
+      if(src[i]==null){ o.push(null); continue; }
+      cnt++; 
+      if(cnt<p){ sum+=src[i]; o.push(null); continue; }
+      if(cnt===p){ sum+=src[i]; prev=sum/p; o.push(prev); continue; }
+      prev=src[i]*k+prev*(1-k); o.push(prev);
+    }
+    return o;
+  }
+  var e1=ema1(C,n), e2=ema1(e1,n), e3=ema1(e2,n), line=[], i;
+  for(i=0;i<C.length;i++){
+    line.push(e3[i]==null||i===0||e3[i-1]==null?null:(e3[i]-e3[i-1])/e3[i-1]*10000);
+  }
+  var sig=ema1(line,sg);
+  return {line:line, sig:sig};
+}
+function crosses(a,b){
+  var out=[];
+  for(var i=1;i<a.length;i++){
+    if(a[i]==null||b[i]==null||a[i-1]==null||b[i-1]==null) continue;
+    if(a[i-1]<=b[i-1] && a[i]>b[i]) out.push({i:i, gold:true});
+    if(a[i-1]>=b[i-1] && a[i]<b[i]) out.push({i:i, gold:false});
+  }
+  return out;
+}
+
+var IND = {
+  sma5:SMA(C,5), sma20:SMA(C,20), sma60:SMA(C,60), sma120:SMA(C,120),
+  ema20:EMA(C,20), ema60:EMA(C,60), wma20:WMA(C,20),
+  boll:BOLL(20,2), env:ENV(20,0.06), sar:PSAR(0.02,0.2),
+  hi52:ROLLMAX(Hh,250), lo52:ROLLMIN(Ll,250),
+  rsi:RSI(14), macd:MACD(12,26,9), stoch:STOCH(14,3,3),
+  cmf:CMF(20), psy:PSY(12), mom:MOM(10), trix:TRIX(12,9)
+};
+IND.cross = crosses(IND.sma5, IND.sma20);
+
+/* =========================================================
+   2. 지표 정의 / 상태
+   ========================================================= */
+var OVERLAYS = [
+  {id:"sma",   fam:"trend", label:"SMA 5·20·60", tone:"brass"},
+  {id:"ema",   fam:"trend", label:"EMA 20·60",   tone:"mint"},
+  {id:"wma",   fam:"trend", label:"WMA 20",      tone:"peri"},
+  {id:"cross", fam:"trend", label:"골든·데드 크로스", tone:"brass"},
+  {id:"boll",  fam:"band",  label:"볼린저밴드",  tone:"brass"},
+  {id:"env",   fam:"band",  label:"MA 엔벨로프", tone:"mint"},
+  {id:"sar",   fam:"band",  label:"파라볼릭 SAR", tone:"peri"},
+  {id:"hl52",  fam:"band",  label:"52주 신고·신저", tone:"brass"}
+];
+var OSCS = [
+  {id:"none",  label:"없음"},
+  {id:"rsi",   label:"RSI"},
+  {id:"macd",  label:"MACD"},
+  {id:"stoch", label:"스토캐스틱 슬로우"},
+  {id:"mom",   label:"모멘텀"},
+  {id:"cmf",   label:"차이킨 자금흐름"},
+  {id:"psy",   label:"투자심리선"},
+  {id:"trix",  label:"트릭스"}
+];
+var STATE = { on:{}, osc:"rsi" };
+
+/* 오실레이터 렌더 스펙 */
+function oscSpec(id){
+  if(id==="rsi") return {name:"RSI (14)", range:[0,100], guides:[{v:70,t:"70"},{v:30,t:"30"}],
+    series:[{v:IND.rsi,c:BRASS,w:1.5,name:"RSI"}], fmt:1};
+  if(id==="macd"){
+    return {name:"MACD (12,26,9)", range:null, zero:true, guides:[],
+      series:[{v:IND.macd.hist,c:null,w:0,type:"hist",name:"OSC"},
+              {v:IND.macd.line,c:BRASS,w:1.5,name:"MACD"},
+              {v:IND.macd.sig,c:PERI,w:1.3,name:"Signal"}], fmt:0};
+  }
+  if(id==="stoch") return {name:"스토캐스틱 슬로우 (14,3,3)", range:[0,100], guides:[{v:80,t:"80"},{v:20,t:"20"}],
+    series:[{v:IND.stoch.k,c:BRASS,w:1.5,name:"%K"},{v:IND.stoch.d,c:PINK,w:1.3,name:"%D"}], fmt:1};
+  if(id==="mom") return {name:"모멘텀 (10)", range:null, zero:true, guides:[],
+    series:[{v:IND.mom,c:MINT,w:1.5,name:"MOM"}], fmt:0};
+  if(id==="cmf") return {name:"차이킨 자금흐름 (20)", range:[-0.35,0.35], zero:true, guides:[{v:0.1,t:"+0.10"},{v:-0.1,t:"-0.10"}],
+    series:[{v:IND.cmf,c:MINT,w:1.5,type:"area",name:"CMF"}], fmt:3};
+  if(id==="psy") return {name:"투자심리선 (12)", range:[0,100], guides:[{v:75,t:"75"},{v:25,t:"25"}],
+    series:[{v:IND.psy,c:PINK,w:1.5,name:"PSY"}], fmt:0};
+  if(id==="trix") return {name:"트릭스 (12,9)", range:null, zero:true, guides:[],
+    series:[{v:IND.trix.line,c:BRASS,w:1.5,name:"TRIX"},{v:IND.trix.sig,c:PERI,w:1.3,name:"Signal"}], fmt:1};
+  return null;
+}
+
+/* =========================================================
+   3. 차트 뷰
+   ========================================================= */
+function ChartView(canvas, opts){
+  this.cv=canvas; this.ctx=canvas.getContext("2d");
+  this.opts=opts||{};
+  this.tools=[]; this.live=null; this.marks=[]; this.zones=[];
+  this.hover=null;
+  var self=this;
+  this.resize();
+  window.addEventListener("resize", function(){ self.resize(); self.draw(); });
+  canvas.addEventListener("pointermove", function(e){
+    if(self.drawing) return;
+    var r=canvas.getBoundingClientRect();
+    var xx=e.clientX-r.left;
+    var i=Math.round((xx-self.g.padL)/self.g.cw - 0.5)+I0;
+    self.hover = (i>=I0 && i<TOTAL) ? i : null;
+    self.draw();
+  });
+  canvas.addEventListener("pointerleave", function(){ self.hover=null; self.draw(); });
+}
+ChartView.prototype.resize=function(){
+  var r=this.cv.getBoundingClientRect(), dpr=Math.min(window.devicePixelRatio||1,2);
+  this.W=r.width; this.H=r.height;
+  this.cv.width=Math.round(r.width*dpr); this.cv.height=Math.round(r.height*dpr);
+  this.ctx.setTransform(dpr,0,0,dpr,0,0);
+  var g=this.g={};
+  g.padL=12; g.padR=this.W<560?54:70; g.padT=16; g.padB=20;
+  g.cw=(this.W-g.padL-g.padR)/VIS;
+  var inner=this.H-g.padT-g.padB;
+  var hasOsc = STATE.osc && STATE.osc!=="none";
+  g.volH=Math.max(38, Math.min(72, inner*0.16));
+  g.oscH=hasOsc? Math.max(52, Math.min(104, inner*0.22)) : 0;
+  g.priceH=inner-g.volH-g.oscH-(hasOsc?10:0)-10;
+  g.priceTop=g.padT;
+  g.oscTop=g.priceTop+g.priceH+10;
+  g.volTop=g.oscTop+g.oscH+(hasOsc?10:0);
+  this.computeScale();
+};
+ChartView.prototype.computeScale=function(){
+  var lo=1e18, hi=-1e18, i;
+  for(i=I0;i<TOTAL;i++){ lo=Math.min(lo,DATA[i].l); hi=Math.max(hi,DATA[i].h); }
+  function inc(arr){ for(var j=I0;j<TOTAL;j++){ var v=arr[j]; if(v==null) continue; lo=Math.min(lo,v); hi=Math.max(hi,v);} }
+  if(STATE.on.boll){ inc(IND.boll.up); inc(IND.boll.lo); }
+  if(STATE.on.env){ inc(IND.env.up); inc(IND.env.lo); }
+  if(STATE.on.hl52){ inc(IND.hi52); inc(IND.lo52); }
+  if(STATE.on.sma){ inc(IND.sma60); }
+  var pad=(hi-lo)*0.07;
+  this.pMin=lo-pad; this.pMax=hi+pad;
+  this.vMax=0;
+  for(i=I0;i<TOTAL;i++) this.vMax=Math.max(this.vMax,DATA[i].v);
+};
+ChartView.prototype.x=function(i){ return this.g.padL+((i-I0)+0.5)*this.g.cw; };
+ChartView.prototype.y=function(p){ return this.g.priceTop+(this.pMax-p)/(this.pMax-this.pMin)*this.g.priceH; };
+ChartView.prototype.toData=function(px,py){
+  return { i:(px-this.g.padL)/this.g.cw-0.5+I0,
+           p:this.pMax-(py-this.g.priceTop)/this.g.priceH*(this.pMax-this.pMin) };
+};
+ChartView.prototype.mono=function(s){ this.ctx.font=s+"px "+getComputedStyle(document.body).getPropertyValue("--font-mono"); };
+
+ChartView.prototype.line=function(arr,color,w,dash,alpha){
+  var c=this.ctx, started=false;
+  c.save();
+  c.strokeStyle=color; c.lineWidth=w; c.lineJoin="round"; c.lineCap="round";
+  if(dash) c.setLineDash(dash);
+  if(alpha!=null) c.globalAlpha=alpha;
+  c.beginPath();
+  for(var i=I0;i<TOTAL;i++){
+    if(arr[i]==null){ started=false; continue; }
+    var xx=this.x(i), yy=this.y(arr[i]);
+    if(!started){ c.moveTo(xx,yy); started=true; } else c.lineTo(xx,yy);
+  }
+  c.stroke(); c.restore();
+};
+ChartView.prototype.tag=function(px,py,text,color,align){
+  var c=this.ctx;
+  c.save();
+  c.font="600 10.5px "+getComputedStyle(document.body).getPropertyValue("--font-body");
+  var w=c.measureText(text).width+12, h=17, x0=align==="right"?px-w:px, y0=py-h/2, r=4;
+  c.fillStyle="#0C1A17ee"; c.strokeStyle=color; c.lineWidth=1;
+  c.beginPath();
+  c.moveTo(x0+r,y0); c.arcTo(x0+w,y0,x0+w,y0+h,r); c.arcTo(x0+w,y0+h,x0,y0+h,r);
+  c.arcTo(x0,y0+h,x0,y0,r); c.arcTo(x0,y0,x0+w,y0,r); c.closePath();
+  c.fill(); c.stroke();
+  c.fillStyle=color; c.textAlign="left"; c.textBaseline="middle";
+  c.fillText(text,x0+6,y0+h/2+0.5);
+  c.restore();
+};
+
+ChartView.prototype.draw=function(){
+  var c=this.ctx, g=this.g, i;
+  c.clearRect(0,0,this.W,this.H);
+  this.computeScale();
+
+  /* --- 가격 눈금 --- */
+  this.mono(10); c.textBaseline="middle";
+  for(i=0;i<=4;i++){
+    var p=this.pMin+(this.pMax-this.pMin)*i/4, yy=this.y(p);
+    c.strokeStyle="#ffffff0b"; c.lineWidth=1;
+    c.beginPath(); c.moveTo(g.padL,yy+0.5); c.lineTo(this.W-g.padR,yy+0.5); c.stroke();
+    c.fillStyle=DIM; c.textAlign="left"; c.fillText(won(p), this.W-g.padR+7, yy);
+  }
+  /* --- 날짜 눈금 --- */
+  c.textAlign="center"; c.textBaseline="top"; c.fillStyle=DIM;
+  for(i=I0;i<TOTAL;i+=20){
+    c.fillText(dstr(i), this.x(i), this.H-g.padB+5);
+    c.strokeStyle="#ffffff08";
+    c.beginPath(); c.moveTo(this.x(i)+0.5,g.padT); c.lineTo(this.x(i)+0.5,this.H-g.padB); c.stroke();
+  }
+
+  /* --- 구간 존 --- */
+  for(i=0;i<this.zones.length;i++){
+    var z=this.zones[i], t=z.t==null?1:z.t;
+    c.save(); c.globalAlpha=t*0.9;
+    var xa=this.x(z.i0)-g.cw/2, xb=this.x(z.i1)+g.cw/2;
+    c.fillStyle=z.color||"#D8B45A14";
+    c.fillRect(xa,g.priceTop,xb-xa,g.priceH);
+    c.strokeStyle=z.line||BRASS; c.lineWidth=1; c.setLineDash([5,4]);
+    c.strokeRect(xa+0.5,g.priceTop+0.5,xb-xa,g.priceH);
+    c.restore();
+    if(t>0.6 && z.text) this.tag(xa+5,g.priceTop+13,z.text,z.line||BRASS);
+  }
+
+  /* --- 밴드 (캔들 아래) --- */
+  if(STATE.on.boll){
+    c.save(); c.fillStyle="#D8B45A12"; c.beginPath();
+    var st=false;
+    for(i=I0;i<TOTAL;i++){ if(IND.boll.up[i]==null) continue; var xx=this.x(i),yy=this.y(IND.boll.up[i]); if(!st){c.moveTo(xx,yy);st=true;}else c.lineTo(xx,yy); }
+    for(i=TOTAL-1;i>=I0;i--){ if(IND.boll.lo[i]==null) continue; c.lineTo(this.x(i),this.y(IND.boll.lo[i])); }
+    c.closePath(); c.fill(); c.restore();
+    this.line(IND.boll.up,BRASS,1.1,null,.85);
+    this.line(IND.boll.lo,BRASS,1.1,null,.85);
+    this.line(IND.boll.mid,BRASS,1,[4,3],.55);
+  }
+  if(STATE.on.env){
+    this.line(IND.env.up,MINT,1.1,[5,3],.8);
+    this.line(IND.env.lo,MINT,1.1,[5,3],.8);
+  }
+  if(STATE.on.hl52){
+    var hiV=IND.hi52[TOTAL-1], loV=IND.lo52[TOTAL-1];
+    c.save(); c.setLineDash([7,4]); c.lineWidth=1.2;
+    c.strokeStyle=UP; c.beginPath(); c.moveTo(g.padL,this.y(hiV)); c.lineTo(this.W-g.padR,this.y(hiV)); c.stroke();
+    c.strokeStyle=DOWN; c.beginPath(); c.moveTo(g.padL,this.y(loV)); c.lineTo(this.W-g.padR,this.y(loV)); c.stroke();
+    c.restore();
+    this.tag(g.padL+6,this.y(hiV)-12,"52주 신고가 "+won(hiV),UP);
+    this.tag(g.padL+6,this.y(loV)+12,"52주 신저가 "+won(loV),DOWN);
+  }
+
+  /* --- 캔들 --- */
+  var bw=Math.max(1.6,g.cw*0.62);
+  for(i=I0;i<TOTAL;i++){
+    var d=DATA[i], up=d.c>=d.o, col=up?UP:DOWN, xx=this.x(i);
+    c.strokeStyle=col; c.lineWidth=1;
+    c.beginPath(); c.moveTo(xx,this.y(d.h)); c.lineTo(xx,this.y(d.l)); c.stroke();
+    var yo=this.y(d.o), yc=this.y(d.c);
+    c.fillStyle=col;
+    c.fillRect(xx-bw/2,Math.min(yo,yc),bw,Math.max(1.2,Math.abs(yc-yo)));
+  }
+
+  /* --- 이동평균 --- */
+  if(STATE.on.sma){
+    this.line(IND.sma5,MINT,1.3); this.line(IND.sma20,BRASS,1.3); this.line(IND.sma60,PERI,1.3);
+    this.tag(this.W-g.padR-6,g.priceTop+10,"SMA 5 / 20 / 60",BRASS,"right");
+  }
+  if(STATE.on.ema){ this.line(IND.ema20,MINT,1.4,[6,3]); this.line(IND.ema60,PINK,1.4,[6,3]); }
+  if(STATE.on.wma){ this.line(IND.wma20,PERI,1.5,[2,3]); }
+
+  /* --- SAR --- */
+  if(STATE.on.sar){
+    c.save();
+    for(i=I0;i<TOTAL;i++){
+      var s=IND.sar[i]; if(!s) continue;
+      c.fillStyle=s.up?MINT:PINK; c.globalAlpha=.85;
+      c.beginPath(); c.arc(this.x(i),this.y(s.v),1.7,0,6.284); c.fill();
+    }
+    c.restore();
+  }
+
+  /* --- 크로스 마커 --- */
+  if(STATE.on.cross){
+    if(!STATE.on.sma){ this.line(IND.sma5,MINT,1,null,.45); this.line(IND.sma20,BRASS,1,null,.45); }
+    c.save();
+    for(i=0;i<IND.cross.length;i++){
+      var cr=IND.cross[i]; if(cr.i<I0) continue;
+      var cx=this.x(cr.i), cy=this.y(IND.sma20[cr.i]);
+      c.fillStyle=cr.gold?BRASS:DOWN;
+      c.beginPath();
+      if(cr.gold){ c.moveTo(cx,cy-9); c.lineTo(cx-5,cy-1); c.lineTo(cx+5,cy-1); }
+      else { c.moveTo(cx,cy+9); c.lineTo(cx-5,cy+1); c.lineTo(cx+5,cy+1); }
+      c.closePath(); c.fill();
+    }
+    c.restore();
+  }
+
+  /* --- 사용자 도구 --- */
+  for(i=0;i<this.tools.length;i++) this.drawTool(this.tools[i]);
+  if(this.live) this.drawStroke(this.live);
+
+  /* --- 조건 마커 --- */
+  if(this.marks.length){
+    c.save();
+    for(i=0;i<this.marks.length;i++){
+      var m=this.marks[i]; if(m.i<I0) continue;
+      var mx=this.x(m.i), t2=m.t==null?1:m.t;
+      c.globalAlpha=t2;
+      c.strokeStyle=m.color||BRASS; c.lineWidth=1;
+      c.setLineDash([2,3]);
+      c.beginPath(); c.moveTo(mx,g.priceTop); c.lineTo(mx,g.priceTop+g.priceH); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle=m.color||BRASS;
+      var my=this.y(DATA[m.i].l)+8;
+      c.beginPath(); c.moveTo(mx,my-5); c.lineTo(mx-4,my+2); c.lineTo(mx+4,my+2); c.closePath(); c.fill();
+    }
+    c.restore();
+  }
+
+  /* --- 오실레이터 --- */
+  if(g.oscH>0) this.drawOsc();
+
+  /* --- 거래량 --- */
+  var vTop=g.volTop, vBot=this.H-g.padB-4;
+  c.strokeStyle=RULE; c.lineWidth=1;
+  c.beginPath(); c.moveTo(g.padL,vTop+0.5); c.lineTo(this.W-g.padR,vTop+0.5); c.stroke();
+  for(i=I0;i<TOTAL;i++){
+    var hh=DATA[i].v/this.vMax*(vBot-vTop-4);
+    c.fillStyle=DATA[i].c>=DATA[i].o?UP:DOWN; c.globalAlpha=.4;
+    c.fillRect(this.x(i)-bw/2,vBot-hh,bw,hh);
+  }
+  c.globalAlpha=1;
+  this.mono(9.5); c.fillStyle=DIM; c.textAlign="left"; c.textBaseline="top";
+  c.fillText("거래량",g.padL+2,vTop+4);
+
+  /* --- 크로스헤어 --- */
+  if(this.hover!=null) this.drawCrosshair();
+};
+
+ChartView.prototype.drawOsc=function(){
+  var c=this.ctx, g=this.g, spec=oscSpec(STATE.osc), i;
+  if(!spec) return;
+  var top=g.oscTop, bot=g.oscTop+g.oscH;
+  c.save();
+  c.strokeStyle=RULE; c.lineWidth=1;
+  c.beginPath(); c.moveTo(g.padL,top+0.5); c.lineTo(this.W-g.padR,top+0.5); c.stroke();
+
+  var lo,hi;
+  if(spec.range){ lo=spec.range[0]; hi=spec.range[1]; }
+  else{
+    lo=1e18; hi=-1e18;
+    for(var s=0;s<spec.series.length;s++){
+      for(i=I0;i<TOTAL;i++){ var v=spec.series[s].v[i]; if(v==null) continue; lo=Math.min(lo,v); hi=Math.max(hi,v); }
+    }
+    var pd=(hi-lo)*0.15||1; lo-=pd; hi+=pd;
+    if(spec.zero){ var m=Math.max(Math.abs(lo),Math.abs(hi)); lo=-m; hi=m; }
+  }
+  var self=this;
+  function oy(v){ return bot-(v-lo)/((hi-lo)||1)*(g.oscH-6)-3; }
+
+  /* 가이드라인 */
+  c.setLineDash([3,3]); c.lineWidth=1;
+  for(i=0;i<spec.guides.length;i++){
+    c.strokeStyle="#D8B45A33";
+    c.beginPath(); c.moveTo(g.padL,oy(spec.guides[i].v)); c.lineTo(this.W-g.padR,oy(spec.guides[i].v)); c.stroke();
+    this.mono(9); c.fillStyle="#D8B45A88"; c.textAlign="left"; c.textBaseline="middle";
+    c.fillText(spec.guides[i].t,this.W-g.padR+7,oy(spec.guides[i].v));
+  }
+  if(spec.zero){
+    c.strokeStyle="#ffffff20"; c.setLineDash([]);
+    c.beginPath(); c.moveTo(g.padL,oy(0)); c.lineTo(this.W-g.padR,oy(0)); c.stroke();
+  }
+  c.setLineDash([]);
+
+  /* 시리즈 */
+  var bw=Math.max(1.4,g.cw*0.6);
+  for(var q=0;q<spec.series.length;q++){
+    var ser=spec.series[q];
+    if(ser.type==="hist"){
+      for(i=I0;i<TOTAL;i++){
+        var hv=ser.v[i]; if(hv==null) continue;
+        c.fillStyle=hv>=0?UP:DOWN; c.globalAlpha=.45;
+        c.fillRect(this.x(i)-bw/2,Math.min(oy(0),oy(hv)),bw,Math.abs(oy(hv)-oy(0)));
+      }
+      c.globalAlpha=1; continue;
+    }
+    if(ser.type==="area"){
+      c.save(); c.beginPath(); var st=false;
+      for(i=I0;i<TOTAL;i++){ if(ser.v[i]==null) continue; var xx=this.x(i),yy=oy(ser.v[i]); if(!st){c.moveTo(xx,oy(0));c.lineTo(xx,yy);st=true;}else c.lineTo(xx,yy); }
+      c.lineTo(this.x(TOTAL-1),oy(0)); c.closePath();
+      c.fillStyle=ser.c+"22"; c.fill(); c.restore();
+    }
+    c.save(); c.strokeStyle=ser.c; c.lineWidth=ser.w; c.lineJoin="round";
+    c.beginPath(); var st2=false;
+    for(i=I0;i<TOTAL;i++){
+      if(ser.v[i]==null){ st2=false; continue; }
+      var px=this.x(i), py=oy(ser.v[i]);
+      if(!st2){ c.moveTo(px,py); st2=true; } else c.lineTo(px,py);
+    }
+    c.stroke(); c.restore();
+  }
+
+  this.mono(9.5); c.fillStyle=DIM; c.textAlign="left"; c.textBaseline="top";
+  c.fillText(spec.name,g.padL+2,top+4);
+  c.restore();
+  this._oy=oy; this._oscSpec=spec;
+};
+
+ChartView.prototype.drawCrosshair=function(){
+  var c=this.ctx, g=this.g, i=this.hover, d=DATA[i];
+  c.save();
+  c.strokeStyle="#ffffff2a"; c.lineWidth=1; c.setLineDash([2,3]);
+  c.beginPath(); c.moveTo(this.x(i)+0.5,g.padT); c.lineTo(this.x(i)+0.5,this.H-g.padB); c.stroke();
+  c.restore();
+
+  var rows=[];
+  rows.push([dfull(i), ""]);
+  rows.push(["시/고/저/종", won(d.o)+" · "+won(d.h)+" · "+won(d.l)+" · "+won(d.c)]);
+  rows.push(["거래량", Math.round(d.v/1000).toLocaleString("ko-KR")+"천주"]);
+  if(STATE.on.sma) rows.push(["SMA 5/20/60", won(IND.sma5[i])+" · "+won(IND.sma20[i])+" · "+(IND.sma60[i]?won(IND.sma60[i]):"—")]);
+  if(STATE.on.ema) rows.push(["EMA 20/60", won(IND.ema20[i])+" · "+(IND.ema60[i]?won(IND.ema60[i]):"—")]);
+  if(STATE.on.wma) rows.push(["WMA 20", IND.wma20[i]?won(IND.wma20[i]):"—"]);
+  if(STATE.on.boll) rows.push(["볼린저 상/중/하", IND.boll.up[i]?(won(IND.boll.up[i])+" · "+won(IND.boll.mid[i])+" · "+won(IND.boll.lo[i])):"—"]);
+  if(STATE.on.env) rows.push(["엔벨로프 ±6%", IND.env.up[i]?(won(IND.env.up[i])+" · "+won(IND.env.lo[i])):"—"]);
+  if(STATE.on.sar) rows.push(["파라볼릭 SAR", IND.sar[i]?won(IND.sar[i].v)+(IND.sar[i].up?" (매수)":" (매도)"):"—"]);
+  if(STATE.on.hl52) rows.push(["52주 고/저", won(IND.hi52[i])+" · "+won(IND.lo52[i])]);
+  var sp=this._oscSpec;
+  if(sp) for(var q=0;q<sp.series.length;q++){
+    if(sp.series[q].type==="hist") continue;
+    rows.push([sp.series[q].name, num(sp.series[q].v[i],sp.fmt)]);
+  }
+
+  c.save();
+  c.font="10.5px "+getComputedStyle(document.body).getPropertyValue("--font-body");
+  var wmax=0;
+  for(var r=0;r<rows.length;r++){
+    var tw=c.measureText(rows[r][0]).width+c.measureText(rows[r][1]).width+26;
+    wmax=Math.max(wmax,tw);
+  }
+  var bw2=Math.min(wmax,260), bh=rows.length*15+12;
+  var bx = this.x(i) > this.W/2 ? g.padL+8 : this.W-g.padR-bw2-8;
+  var by = g.priceTop+8;
+  c.fillStyle="#0C1A17ee"; c.strokeStyle=RULE; c.lineWidth=1;
+  c.beginPath();
+  var rr=6;
+  c.moveTo(bx+rr,by); c.arcTo(bx+bw2,by,bx+bw2,by+bh,rr); c.arcTo(bx+bw2,by+bh,bx,by+bh,rr);
+  c.arcTo(bx,by+bh,bx,by,rr); c.arcTo(bx,by,bx+bw2,by,rr); c.closePath(); c.fill(); c.stroke();
+  c.textBaseline="middle";
+  for(r=0;r<rows.length;r++){
+    var yy=by+12+r*15;
+    c.fillStyle=r===0?CHALK:DIM; c.textAlign="left";
+    c.font=(r===0?"600 ":"")+"10.5px "+getComputedStyle(document.body).getPropertyValue("--font-body");
+    c.fillText(rows[r][0],bx+9,yy);
+    c.fillStyle=CHALK; c.textAlign="right";
+    this.mono(10.5);
+    c.fillText(rows[r][1],bx+bw2-9,yy);
+  }
+  c.restore();
+};
+
+ChartView.prototype.drawStroke=function(pts){
+  var c=this.ctx;
+  c.save();
+  c.strokeStyle="#ffffffcc"; c.lineWidth=2.4; c.lineJoin="round"; c.lineCap="round";
+  c.shadowColor="#ffffff55"; c.shadowBlur=5; c.globalAlpha=.88;
+  c.beginPath();
+  for(var i=0;i<pts.length;i++){
+    var px=this.x(pts[i].i), py=this.y(pts[i].p);
+    if(i===0) c.moveTo(px,py); else c.lineTo(px,py);
+  }
+  c.stroke(); c.restore();
+};
+
+ChartView.prototype.drawTool=function(t){
+  var c=this.ctx, k=t.t==null?1:t.t, i;
+  if(t.kind==="line"){
+    var a=t.pts[0], b=t.pts[1];
+    if(k<1 && t.raw){
+      var ra=t.raw[0], rb=t.raw[t.raw.length-1];
+      a={i:ra.i+(a.i-ra.i)*k, p:ra.p+(a.p-ra.p)*k};
+      b={i:rb.i+(b.i-rb.i)*k, p:rb.p+(b.p-rb.p)*k};
+    }
+    c.save(); c.strokeStyle=BRASS; c.lineWidth=1.9; c.lineCap="round"; c.globalAlpha=.4+.6*k;
+    c.beginPath(); c.moveTo(this.x(a.i),this.y(a.p)); c.lineTo(this.x(b.i),this.y(b.p)); c.stroke();
+    if(t.touch){ c.fillStyle=BRASS; for(i=0;i<t.touch.length;i++){ c.beginPath(); c.arc(this.x(t.touch[i].i),this.y(t.touch[i].p),3.2,0,6.284); c.fill(); } }
+    c.restore();
+    if(k>.7) this.tag(this.x(b.i)+5,this.y(b.p),t.text,BRASS);
+  }
+  if(t.kind==="hline"){
+    c.save(); c.strokeStyle=t.color||BRASS; c.lineWidth=1.6; c.setLineDash([6,4]); c.globalAlpha=.4+.6*k;
+    var yy=this.y(t.price);
+    c.beginPath(); c.moveTo(this.g.padL,yy); c.lineTo(this.W-this.g.padR,yy); c.stroke(); c.restore();
+    if(k>.7) this.tag(this.g.padL+6,yy-12,t.text+" "+won(t.price),t.color||BRASS);
+  }
+  if(t.kind==="fib"){
+    var lv=[0,0.236,0.382,0.5,0.618,0.786,1];
+    c.save(); c.globalAlpha=k;
+    for(i=0;i<lv.length;i++){
+      var p2=t.hi+(t.lo-t.hi)*lv[i], y2=this.y(p2), key=(lv[i]===0.618||lv[i]===0.382);
+      c.strokeStyle=key?BRASS:"#D8B45A44"; c.lineWidth=key?1.4:1; c.setLineDash([4,4]);
+      c.beginPath(); c.moveTo(this.x(t.i0),y2); c.lineTo(this.W-this.g.padR,y2); c.stroke();
+      c.setLineDash([]); c.fillStyle=key?BRASS:"#D8B45A99";
+      this.mono(9.5); c.textAlign="left"; c.textBaseline="bottom";
+      c.fillText(lv[i].toFixed(3)+"  "+won(p2),this.x(t.i0)+4,y2-2);
+    }
+    c.restore();
+  }
+  if(t.kind==="pattern"){
+    c.save(); c.globalAlpha=k; c.strokeStyle=BRASS; c.lineWidth=1.9; c.lineJoin="round";
+    c.beginPath();
+    for(i=0;i<t.pts.length;i++){
+      var qx=this.x(t.pts[i].i), qy=this.y(t.pts[i].p);
+      if(i===0) c.moveTo(qx,qy); else c.lineTo(qx,qy);
+    }
+    c.stroke();
+    c.fillStyle=BRASS;
+    for(i=0;i<t.pts.length;i++){ c.beginPath(); c.arc(this.x(t.pts[i].i),this.y(t.pts[i].p),3.3,0,6.284); c.fill(); }
+    if(t.neck){
+      c.strokeStyle="#D8B45A99"; c.setLineDash([6,4]); c.lineWidth=1.4;
+      c.beginPath(); c.moveTo(this.x(t.neck[0].i),this.y(t.neck[0].p)); c.lineTo(this.x(t.neck[1].i),this.y(t.neck[1].p)); c.stroke();
+    }
+    c.restore();
+    if(k>.7) this.tag(this.x(t.pts[2].i),this.y(t.pts[2].p)-16,t.text,BRASS);
+  }
+};
+ChartView.prototype.animateLast=function(){
+  var self=this, t=this.tools[this.tools.length-1];
+  if(!t) return;
+  if(reduceMotion()){ t.t=1; this.draw(); return; }
+  t.t=0;
+  var t0=performance.now();
+  (function step(now){
+    var k=Math.min(1,(now-t0)/560);
+    t.t=1-Math.pow(1-k,3);
+    self.draw();
+    if(k<1) requestAnimationFrame(step);
+  })(t0);
+};
+
+/* =========================================================
+   4. 지표 토글 UI
+   ========================================================= */
+var sketch = new ChartView(document.getElementById("sketchCanvas"));
+var nl = new ChartView(document.getElementById("nlCanvas"));
+
+function buildChips(){
+  var fams={trend:[],band:[]};
+  OVERLAYS.forEach(function(o){ fams[o.fam].push(o); });
+  ["trend","band"].forEach(function(f){
+    var host=document.querySelector('.tools[data-family="'+f+'"]');
+    host.innerHTML="";
+    fams[f].forEach(function(o){
+      var b=document.createElement("button");
+      b.className="chip"; b.textContent=o.label;
+      b.setAttribute("aria-pressed", STATE.on[o.id]?"true":"false");
+      b.setAttribute("data-tone",o.tone);
+      b.addEventListener("click",function(){
+        STATE.on[o.id]=!STATE.on[o.id];
+        b.setAttribute("aria-pressed", STATE.on[o.id]?"true":"false");
+        refreshAll();
+      });
+      host.appendChild(b);
+    });
+  });
+  var oh=document.querySelector('.tools[data-family="osc"]');
+  oh.innerHTML="";
+  OSCS.forEach(function(o){
+    var b=document.createElement("button");
+    b.className="chip"; b.textContent=o.label;
+    b.setAttribute("aria-pressed", STATE.osc===o.id?"true":"false");
+    b.addEventListener("click",function(){
+      STATE.osc=o.id;
+      oh.querySelectorAll(".chip").forEach(function(x){ x.setAttribute("aria-pressed","false"); });
+      b.setAttribute("aria-pressed","true");
+      refreshAll();
+    });
+    oh.appendChild(b);
+  });
+}
+function syncChips(){
+  document.querySelectorAll('.tools[data-family="trend"] .chip, .tools[data-family="band"] .chip').forEach(function(b,idx){
+    var o=OVERLAYS.filter(function(x){return x.label===b.textContent;})[0];
+    if(o) b.setAttribute("aria-pressed", STATE.on[o.id]?"true":"false");
+  });
+  document.querySelectorAll('.tools[data-family="osc"] .chip').forEach(function(b){
+    var o=OSCS.filter(function(x){return x.label===b.textContent;})[0];
+    if(o) b.setAttribute("aria-pressed", STATE.osc===o.id?"true":"false");
+  });
+}
+function refreshAll(){
+  var n=0;
+  OVERLAYS.forEach(function(o){ if(STATE.on[o.id]) n++; });
+  if(STATE.osc && STATE.osc!=="none") n++;
+  document.getElementById("onCount").textContent=n+"개";
+  var lay=[];
+  if(STATE.on.sma) lay.push("SMA");
+  if(STATE.on.ema) lay.push("EMA");
+  if(STATE.on.wma) lay.push("WMA");
+  if(STATE.on.boll) lay.push("볼린저");
+  if(STATE.on.env) lay.push("엔벨로프");
+  var l2=document.getElementById("lay2");
+  if(l2) l2.textContent = lay.length?lay.join(" · "):"없음";
+  sketch.resize(); sketch.draw();
+  nl.resize(); nl.draw();
+  if(three.ready) three.rebuild();
+  syncChips();
+}
+
+/* 초기 지표 */
+STATE.on.sma=true; STATE.on.boll=true; STATE.osc="rsi";
+buildChips();
+
+var last=DATA[TOTAL-1], prev=DATA[TOTAL-2];
+var chg=(last.c/prev.c-1)*100;
+document.getElementById("px1").innerHTML = won(last.c)+" <em style='color:"+(chg>=0?UP:DOWN)+"'>"+(chg>=0?"+":"")+chg.toFixed(2)+"%</em>";
+
+/* =========================================================
+   5. 스케치 인식
+   ========================================================= */
+var sketchHint=document.getElementById("sketchHint");
+var readout=document.getElementById("sketchReadout");
+
+function extremes(kind,w){
+  var res=[];
+  for(var i=I0+w;i<TOTAL-w;i++){
+    var ok=true;
+    for(var j=i-w;j<=i+w;j++){
+      if(j===i) continue;
+      if(kind==="high"&&DATA[j].h>=DATA[i].h) ok=false;
+      if(kind==="low"&&DATA[j].l<=DATA[i].l) ok=false;
+    }
+    if(ok) res.push({i:i,p:kind==="high"?DATA[i].h:DATA[i].l});
+  }
+  return res;
+}
+var HIGHS=extremes("high",4), LOWS=extremes("low",4);
+
+/* 켜져 있는 지표 라인을 스냅 후보로 */
+function activeLines(){
+  var out=[];
+  if(STATE.on.sma){ out.push({a:IND.sma5,n:"SMA 5"},{a:IND.sma20,n:"SMA 20"},{a:IND.sma60,n:"SMA 60"}); }
+  if(STATE.on.ema){ out.push({a:IND.ema20,n:"EMA 20"},{a:IND.ema60,n:"EMA 60"}); }
+  if(STATE.on.wma){ out.push({a:IND.wma20,n:"WMA 20"}); }
+  if(STATE.on.boll){ out.push({a:IND.boll.up,n:"볼린저 상단"},{a:IND.boll.lo,n:"볼린저 하단"},{a:IND.boll.mid,n:"볼린저 중심선"}); }
+  if(STATE.on.env){ out.push({a:IND.env.up,n:"엔벨로프 상단"},{a:IND.env.lo,n:"엔벨로프 하단"}); }
+  if(STATE.on.hl52){ out.push({a:IND.hi52,n:"52주 신고가"},{a:IND.lo52,n:"52주 신저가"}); }
+  return out;
+}
+function matchIndicator(pts,pMin,pMax){
+  var lines=activeLines(), best=null;
+  for(var k=0;k<lines.length;k++){
+    var sum=0, cnt=0;
+    for(var q=0;q<pts.length;q++){
+      var idx=Math.round(pts[q].i);
+      if(idx<I0||idx>=TOTAL) continue;
+      var v=lines[k].a[idx]; if(v==null) continue;
+      sum+=Math.abs(pts[q].p-v)/(pMax-pMin); cnt++;
+    }
+    if(!cnt) continue;
+    var err=sum/cnt;
+    if(!best||err<best.err) best={err:err, name:lines[k].n, arr:lines[k].a};
+  }
+  return best && best.err<0.022 ? best : null;
+}
+
+function analyze(pts,pMin,pMax){
+  var iMin=1e9,iMax=-1e9,pLo=1e18,pHi=-1e18,len=0,i;
+  for(i=0;i<pts.length;i++){
+    iMin=Math.min(iMin,pts[i].i); iMax=Math.max(iMax,pts[i].i);
+    pLo=Math.min(pLo,pts[i].p); pHi=Math.max(pHi,pts[i].p);
+    if(i) len+=Math.abs(pts[i].i-pts[i-1].i)+Math.abs(pts[i].p-pts[i-1].p)/(pMax-pMin)*VIS;
+  }
+  var a=pts[0], b=pts[pts.length-1];
+  var endD=Math.abs(b.i-a.i)+Math.abs(b.p-a.p)/(pMax-pMin)*VIS;
+  var turns=0,dir=0;
+  for(i=1;i<pts.length;i++){
+    var dp=pts[i].p-pts[i-1].p;
+    if(Math.abs(dp)<(pMax-pMin)*0.006) continue;
+    var nd=dp>0?1:-1;
+    if(dir&&nd!==dir) turns++;
+    dir=nd;
+  }
+  return {straight:len?endD/len:0, closed:endD<7&&len>28, turns:turns,
+          wSpan:iMax-iMin, hSpan:(pHi-pLo)/(pMax-pMin)*VIS,
+          iMin:iMin,iMax:iMax,pLo:pLo,pHi:pHi,a:a,b:b};
+}
+
+function recognize(pts,view){
+  var pMin=view.pMin, pMax=view.pMax;
+  var f=analyze(pts,pMin,pMax), i;
+
+  /* 지표 라인 추종 */
+  var mi=matchIndicator(pts,pMin,pMax);
+  if(mi && f.wSpan>10 && !f.closed){
+    var touchCnt=0;
+    for(i=I0;i<TOTAL;i++){
+      if(mi.arr[i]==null) continue;
+      if(Math.abs(DATA[i].c-mi.arr[i])<(pMax-pMin)*0.004) touchCnt++;
+    }
+    return { kind:"snapline", arr:mi.arr, type:mi.name+" 추종",
+      sub:"켜져 있는 지표 라인과 평균 오차 "+(mi.err*100).toFixed(2)+"% → 해당 라인으로 스냅",
+      rows:[["대상 지표",mi.name],["현재값",won(mi.arr[TOTAL-1])],["종가 접촉",touchCnt+"회"]],
+      conf:Math.min(0.97,0.7+(0.022-mi.err)*12), draw:{kind:"line",pts:[
+        {i:Math.max(I0,Math.round(f.iMin)),p:mi.arr[Math.max(I0,Math.round(f.iMin))]||C[Math.round(f.iMin)]},
+        {i:Math.min(TOTAL-1,Math.round(f.iMax)),p:mi.arr[Math.min(TOTAL-1,Math.round(f.iMax))]||C[Math.round(f.iMax)]}],
+        text:mi.name} };
+  }
+
+  if(f.closed){
+    return { kind:"zone", i0:Math.max(I0,Math.round(f.iMin)), i1:Math.min(TOTAL-1,Math.round(f.iMax)),
+      type:"구간 강조", sub:"닫힌 형태로 인식 → 해당 기간을 관심 구간으로 고정",
+      rows:[["기간", dstr(Math.max(I0,Math.round(f.iMin)))+" ~ "+dstr(Math.min(TOTAL-1,Math.round(f.iMax)))],
+            ["가격대", won(f.pLo)+" ~ "+won(f.pHi)]],
+      conf:0.88, text:"관심 구간" };
+  }
+  if(f.hSpan>f.wSpan*1.6 && f.straight>0.6){
+    var hi=Math.max(f.a.p,f.b.p), lo=Math.min(f.a.p,f.b.p);
+    return { kind:"fib", hi:hi, lo:lo, i0:Math.max(I0,Math.round(f.iMin)-1), type:"피보나치 되돌림",
+      sub:"수직에 가까운 스트로크 → 고점·저점 기준 되돌림 레벨 생성",
+      rows:[["고점",won(hi)],["저점",won(lo)],["0.618",won(hi+(lo-hi)*0.618)]], conf:0.91 };
+  }
+  if(f.turns>=3 && f.wSpan>16){
+    var peaks=HIGHS.filter(function(h){return h.i>=f.iMin-5&&h.i<=f.iMax+5;});
+    var trs=LOWS.filter(function(l){return l.i>=f.iMin-5&&l.i<=f.iMax+5;});
+    if(peaks.length>=3&&trs.length>=2){
+      peaks=peaks.slice().sort(function(x,y){return y.p-x.p;});
+      var head=peaks[0], L=null,R=null,k;
+      for(k=0;k<peaks.length;k++) if(peaks[k].i<head.i-4){ L=peaks[k]; break; }
+      for(k=0;k<peaks.length;k++) if(peaks[k].i>head.i+4){ R=peaks[k]; break; }
+      if(L&&R){
+        var t1=null,t2=null;
+        for(k=0;k<trs.length;k++){
+          if(trs[k].i>L.i&&trs[k].i<head.i&&(!t1||trs[k].p<t1.p)) t1=trs[k];
+          if(trs[k].i>head.i&&trs[k].i<R.i&&(!t2||trs[k].p<t2.p)) t2=trs[k];
+        }
+        if(t1&&t2){
+          var sym=1-Math.min(1,Math.abs(L.p-R.p)/(pMax-pMin)*3);
+          return { kind:"pattern", pts:[L,t1,head,t2,R], neck:[t1,t2], text:"헤드앤숄더",
+            type:"헤드앤숄더", sub:"전환점 "+f.turns+"회 지그재그 → 실제 극점 5곳에 스냅",
+            rows:[["헤드",won(head.p)+" ("+dstr(head.i)+")"],["넥라인",won((t1.p+t2.p)/2)],
+                  ["어깨 대칭도",(sym*100).toFixed(0)+"%"]],
+            conf:0.62+sym*0.3 };
+        }
+      }
+    }
+  }
+
+  var slope=(f.b.p-f.a.p)/Math.max(1,(f.b.i-f.a.i));
+  var slopeN=Math.abs(slope)/(pMax-pMin)*VIS;
+  if(slopeN<0.9){
+    var avg=0; for(i=0;i<pts.length;i++) avg+=pts[i].p; avg/=pts.length;
+    var cand=HIGHS.concat(LOWS), best=null, bd=1e18;
+    for(i=0;i<cand.length;i++){ var dd=Math.abs(cand[i].p-avg); if(dd<bd){bd=dd;best=cand[i];} }
+    var price=best?best.p:avg;
+    var tc=cand.filter(function(x){return Math.abs(x.p-price)<(pMax-pMin)*0.018;}).length;
+    var isRes=price>DATA[TOTAL-1].c;
+    return { kind:"hline", price:price, text:isRes?"저항":"지지", color:isRes?BRASS:MINT,
+      type:isRes?"저항선":"지지선", sub:"수평 스트로크 → 인접 극점 가격으로 스냅",
+      rows:[["가격",won(price)],["접점 수",tc+"개"],["현재가 대비",((price/DATA[TOTAL-1].c-1)*100).toFixed(2)+"%"]],
+      conf:Math.min(0.96,0.6+tc*0.09) };
+  }
+
+  var below=0;
+  for(i=0;i<pts.length;i++){
+    var idx=Math.round(pts[i].i);
+    if(idx<I0||idx>=TOTAL) continue;
+    if(pts[i].p<(DATA[idx].h+DATA[idx].l)/2) below++;
+  }
+  var useLows=below>pts.length/2;
+  var pool=(useLows?LOWS:HIGHS).filter(function(x){return x.i>=f.iMin-4&&x.i<=f.iMax+4;});
+  if(pool.length<2) pool=(useLows?LOWS:HIGHS).slice();
+  function dist(pt){
+    var m=1e18;
+    for(var q=0;q<pts.length;q++)
+      m=Math.min(m,Math.pow((pts[q].i-pt.i)/VIS,2)+Math.pow((pts[q].p-pt.p)/(pMax-pMin),2));
+    return m;
+  }
+  pool=pool.slice().sort(function(x,y){return dist(x)-dist(y);});
+  var p1=pool[0], p2=pool[1]||pool[0];
+  if(p1.i>p2.i){ var tmp=p1; p1=p2; p2=tmp; }
+  var sl=(p2.p-p1.p)/Math.max(1,(p2.i-p1.i));
+  var e0={i:Math.max(I0,f.iMin-2), p:p1.p+sl*(Math.max(I0,f.iMin-2)-p1.i)};
+  var e1={i:Math.min(TOTAL-1,f.iMax+6), p:p1.p+sl*(Math.min(TOTAL-1,f.iMax+6)-p1.i)};
+  var pct=sl/DATA[Math.round(p1.i)].c*100;
+  return { kind:"line", pts:[e0,e1], raw:pts, touch:[p1,p2],
+    text:(useLows?"상승 지지선":"하락 저항선"), type:sl>0?"상승 추세선":"하락 추세선",
+    sub:(useLows?"저점":"고점")+" 회귀 후 실제 극점 2곳에 스냅",
+    rows:[["기울기",(pct>0?"+":"")+pct.toFixed(2)+"% / 일"],
+          ["접점",dstr(p1.i)+" · "+dstr(p2.i)],["연장 종가",won(e1.p)]],
+    conf:Math.min(0.95,0.55+f.straight*0.42) };
+}
+
+function renderReadout(el,r){
+  var rows="";
+  for(var i=0;i<r.rows.length;i++)
+    rows+='<div class="kv"><span>'+r.rows[i][0]+'</span><b>'+r.rows[i][1]+'</b></div>';
+  el.innerHTML='<h3>AI 인식 결과</h3><p class="result-type">'+r.type+'</p>'+
+    '<p class="result-sub">'+r.sub+'</p>'+rows+
+    '<div style="margin-top:10px"><div class="kv" style="border:0;padding-bottom:2px"><span>신뢰도</span><b>'+
+    Math.round(r.conf*100)+'%</b></div><div class="conf-bar"><i></i></div></div>';
+  requestAnimationFrame(function(){
+    var b=el.querySelector(".conf-bar i"); if(b) b.style.width=Math.round(r.conf*100)+"%";
+  });
+}
+
+(function attachDraw(view){
+  var pts=[];
+  function pos(e){
+    var r=view.cv.getBoundingClientRect();
+    return view.toData(e.clientX-r.left, e.clientY-r.top);
+  }
+  view.cv.addEventListener("pointerdown",function(e){
+    e.preventDefault(); view.drawing=true; view.hover=null;
+    pts=[pos(e)]; view.live=pts; view.draw();
+  });
+  view.cv.addEventListener("pointermove",function(e){
+    if(!view.drawing) return;
+    e.preventDefault();
+    var p=pos(e), l=pts[pts.length-1];
+    if(Math.abs(p.i-l.i)<0.15 && Math.abs(p.p-l.p)<(view.pMax-view.pMin)*0.002) return;
+    pts.push(p); view.draw();
+  });
+  function end(){
+    if(!view.drawing) return;
+    view.drawing=false; view.live=null;
+    if(pts.length>=4){
+      sketchHint.classList.add("hide");
+      var r=recognize(pts.slice(),view);
+      var tool = r.draw ? r.draw : r;
+      view.tools.push(tool);
+      view.animateLast();
+      if(r.kind==="zone"){ view.zones.push({i0:r.i0,i1:r.i1,text:r.text}); }
+      renderReadout(readout,r);
+    } else view.draw();
+  }
+  window.addEventListener("pointerup",end);
+})(sketch);
+
+document.getElementById("undoBtn").addEventListener("click",function(){
+  sketch.tools.pop(); sketch.zones.pop(); sketch.draw();
+  if(!sketch.tools.length){
+    readout.innerHTML='<h3>AI 인식 결과</h3><p class="empty">차트 위에 선을 그으면 형태를 분석해 정밀 도구로 변환합니다.</p>';
+    sketchHint.classList.remove("hide");
+  }
+});
+document.getElementById("clearBtn").addEventListener("click",function(){
+  sketch.tools=[]; sketch.zones=[]; sketch.draw();
+  readout.innerHTML='<h3>AI 인식 결과</h3><p class="empty">차트 위에 선을 그으면 형태를 분석해 정밀 도구로 변환합니다.</p>';
+  sketchHint.classList.remove("hide");
+});
+
+/* =========================================================
+   6. 3D
+   ========================================================= */
+var three={ready:false};
+function init3D(){
+  if(three.ready||typeof THREE==="undefined") return;
+  var host=document.getElementById("gl");
+  var w=host.clientWidth,h=host.clientHeight;
+  var scene=new THREE.Scene();
+  var camera=new THREE.PerspectiveCamera(38,w/h,1,5000);
+  camera.position.set(0,0,640);
+  var renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.setSize(w,h);
+  renderer.localClippingEnabled=true;
+  host.appendChild(renderer.domElement);
+  scene.add(new THREE.AmbientLight(0xffffff,0.74));
+  var key=new THREE.DirectionalLight(0xffffff,0.85); key.position.set(220,300,430); scene.add(key);
+  var fill=new THREE.DirectionalLight(0x9FD8C4,0.28); fill.position.set(-300,-120,220); scene.add(fill);
+
+  var root=new THREE.Group(); scene.add(root);
+  var group=null;
+
+  var N3=Math.min(VIS,120), S0=TOTAL-N3;
+  var SPAN=560, step=SPAN/N3, half=SPAN/2;
+  var planeA=new THREE.Plane(new THREE.Vector3(1,0,0),half);
+  var planeB=new THREE.Plane(new THREE.Vector3(-1,0,0),half);
+  var clip=[planeA,planeB];
+
+  function build(){
+    if(group){ root.remove(group); }
+    group=new THREE.Group(); root.add(group);
+
+    var lo=1e18,hi=-1e18,i;
+    for(i=S0;i<TOTAL;i++){ lo=Math.min(lo,DATA[i].l); hi=Math.max(hi,DATA[i].h); }
+    var yScale=290/(hi-lo), mid=(lo+hi)/2;
+    function yp(p){ return (p-mid)*yScale; }
+    function xp(i){ return -half+((i-S0)+0.5)*step; }
+
+    var mUp=new THREE.MeshLambertMaterial({color:0xE4453A,clippingPlanes:clip});
+    var mDn=new THREE.MeshLambertMaterial({color:0x2E6FE8,clippingPlanes:clip});
+    var mWick=new THREE.MeshBasicMaterial({color:0xE9EFE9,transparent:true,opacity:0.3,clippingPlanes:clip});
+    var mVol=new THREE.MeshLambertMaterial({color:0xD8B45A,transparent:true,opacity:0.5,clippingPlanes:clip});
+    var bw=step*0.6, vmax=0;
+    for(i=S0;i<TOTAL;i++) vmax=Math.max(vmax,DATA[i].v);
+
+    for(i=S0;i<TOTAL;i++){
+      var d=DATA[i], up=d.c>=d.o, x=xp(i);
+      var bh=Math.max(1.3,Math.abs(yp(d.c)-yp(d.o)));
+      var body=new THREE.Mesh(new THREE.BoxGeometry(bw,bh,bw),up?mUp:mDn);
+      body.position.set(x,(yp(d.o)+yp(d.c))/2,0); group.add(body);
+      var wk=new THREE.Mesh(new THREE.BoxGeometry(bw*0.16,yp(d.h)-yp(d.l),bw*0.16),mWick);
+      wk.position.set(x,(yp(d.h)+yp(d.l))/2,0); group.add(wk);
+      var vh=d.v/vmax*105;
+      var vo=new THREE.Mesh(new THREE.BoxGeometry(bw,vh,bw*0.7),mVol);
+      vo.position.set(x,-185+vh/2,-190); group.add(vo);
+    }
+
+    /* 중간 평면: 지표 라인 */
+    function addLine(arr,color,z,opacity){
+      var pts=[];
+      for(var q=S0;q<TOTAL;q++){ if(arr[q]==null) continue; pts.push(new THREE.Vector3(xp(q),yp(arr[q]),z)); }
+      if(pts.length<2) return;
+      var geo=new THREE.BufferGeometry().setFromPoints(pts);
+      var mat=new THREE.LineBasicMaterial({color:color,transparent:true,opacity:opacity||0.95,clippingPlanes:clip});
+      group.add(new THREE.Line(geo,mat));
+    }
+    var Z1=-95;
+    if(STATE.on.sma){ addLine(IND.sma5,0x7FD4B8,Z1); addLine(IND.sma20,0xD8B45A,Z1); addLine(IND.sma60,0x9DA8FF,Z1); }
+    if(STATE.on.ema){ addLine(IND.ema20,0x7FD4B8,Z1-14,0.8); addLine(IND.ema60,0xE48ABF,Z1-14,0.8); }
+    if(STATE.on.wma){ addLine(IND.wma20,0x9DA8FF,Z1-28,0.8); }
+    if(STATE.on.boll){ addLine(IND.boll.up,0xD8B45A,Z1+18,0.7); addLine(IND.boll.lo,0xD8B45A,Z1+18,0.7); }
+    if(STATE.on.env){ addLine(IND.env.up,0x7FD4B8,Z1+30,0.6); addLine(IND.env.lo,0x7FD4B8,Z1+30,0.6); }
+    if(STATE.on.hl52){
+      addLine(IND.hi52,0xE4453A,Z1+42,0.55); addLine(IND.lo52,0x2E6FE8,Z1+42,0.55);
+    }
+    if(STATE.on.sar){
+      var sg=new THREE.BufferGeometry(), sp=[];
+      for(i=S0;i<TOTAL;i++){ if(!IND.sar[i]) continue; sp.push(new THREE.Vector3(xp(i),yp(IND.sar[i].v),Z1+8)); }
+      sg.setFromPoints(sp);
+      group.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0x9DA8FF,size:4,clippingPlanes:clip})));
+    }
+
+    /* 뒤 평면: 오실레이터 */
+    var spec=oscSpec(STATE.osc);
+    if(spec){
+      var olo=1e18,ohi=-1e18,s2;
+      for(s2=0;s2<spec.series.length;s2++)
+        for(i=S0;i<TOTAL;i++){ var v2=spec.series[s2].v[i]; if(v2==null) continue; olo=Math.min(olo,v2); ohi=Math.max(ohi,v2); }
+      if(spec.range){ olo=spec.range[0]; ohi=spec.range[1]; }
+      for(s2=0;s2<spec.series.length;s2++){
+        var ser=spec.series[s2];
+        if(ser.type==="hist") continue;
+        var op=[];
+        for(i=S0;i<TOTAL;i++){
+          var vv=ser.v[i]; if(vv==null) continue;
+          op.push(new THREE.Vector3(xp(i), -305+(vv-olo)/((ohi-olo)||1)*95, -190));
+        }
+        if(op.length<2) continue;
+        var og=new THREE.BufferGeometry().setFromPoints(op);
+        group.add(new THREE.Line(og,new THREE.LineBasicMaterial({
+          color:new THREE.Color(ser.c), transparent:true, opacity:0.95, clippingPlanes:clip})));
+      }
+    }
+
+    var grid=new THREE.GridHelper(SPAN,12,0x2E5A50,0x1E4139);
+    grid.position.set(0,-320,-95);
+    grid.material.transparent=true; grid.material.opacity=0.42;
+    group.add(grid);
+    group.rotation.x=rotX; group.rotation.y=rotY;
+  }
+
+  var rotX=0,rotY=0,tX=0,tY=0,spin=false,dragging=false,lastX=0,lastY=0,zoom=640;
+  var el=renderer.domElement;
+  el.addEventListener("pointerdown",function(e){
+    dragging=true; spin=false; host.classList.add("dragging");
+    lastX=e.clientX; lastY=e.clientY;
+    document.getElementById("glHint").classList.add("hide"); setPressed(null);
+  });
+  window.addEventListener("pointermove",function(e){
+    if(!dragging) return;
+    tY+=(e.clientX-lastX)*0.006; tX+=(e.clientY-lastY)*0.005;
+    tX=Math.max(-1.15,Math.min(1.15,tX));
+    lastX=e.clientX; lastY=e.clientY;
+  });
+  window.addEventListener("pointerup",function(){ dragging=false; host.classList.remove("dragging"); });
+  el.addEventListener("wheel",function(e){
+    e.preventDefault(); zoom=Math.max(250,Math.min(1100,zoom+e.deltaY*0.6));
+  },{passive:false});
+
+  function setCut(){
+    var pos=+document.getElementById("cutPos").value/100;
+    var wid=+document.getElementById("cutWidth").value/100;
+    var cb=pos*(N3-1), hb=wid*N3/2;
+    var a=Math.max(0,cb-hb), b=Math.min(N3,cb+hb);
+    planeA.constant=-(-half+a*step); planeB.constant=(-half+b*step);
+    document.getElementById("cutPosVal").textContent=dstr(Math.min(TOTAL-1,S0+Math.round(cb)));
+    document.getElementById("cutWidthVal").textContent=Math.round(wid*N3)+"일";
+  }
+  document.getElementById("cutPos").addEventListener("input",setCut);
+  document.getElementById("cutWidth").addEventListener("input",setCut);
+
+  function setPressed(nm){
+    document.querySelectorAll("[data-view]").forEach(function(x){
+      x.setAttribute("aria-pressed", x.getAttribute("data-view")===nm?"true":"false");
+    });
+  }
+  document.querySelectorAll("[data-view]").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var v=btn.getAttribute("data-view");
+      setPressed(v); document.getElementById("glHint").classList.add("hide");
+      spin=(v==="spin");
+      if(v==="front"){ tX=0; tY=0; zoom=640; }
+      if(v==="iso"){ tX=0.32; tY=-0.6; zoom=680; }
+      if(v==="top"){ tX=1.05; tY=0; zoom=740; }
+    });
+  });
+
+  build(); setCut();
+  (function tick(){
+    requestAnimationFrame(tick);
+    if(spin) tY+=0.004;
+    rotX+=(tX-rotX)*0.12; rotY+=(tY-rotY)*0.12;
+    if(group){ group.rotation.x=rotX; group.rotation.y=rotY; }
+    camera.position.z+=(zoom-camera.position.z)*0.12;
+    renderer.render(scene,camera);
+  })();
+  window.addEventListener("resize",function(){
+    var w2=host.clientWidth,h2=host.clientHeight;
+    if(!w2||!h2) return;
+    camera.aspect=w2/h2; camera.updateProjectionMatrix(); renderer.setSize(w2,h2);
+  });
+  three.ready=true; three.rebuild=build;
+}
+
+/* =========================================================
+   7. 자연어 → 지표 + 조건 스캔
+   ========================================================= */
+var nlReadout=document.getElementById("nlReadout"), nlHint=document.getElementById("nlHint");
+
+function surge(){
+  var best={s:0,i0:I0,i1:I0+9};
+  for(var i=I0;i<TOTAL-9;i++){
+    var s=0; for(var j=i;j<i+10;j++) s+=DATA[j].v;
+    if(s>best.s) best={s:s,i0:i,i1:i+9};
+  }
+  return best;
+}
+function runNL(text){
+  var t=text.trim(); if(!t) return;
+  nl.tools=[]; nl.marks=[]; nl.zones=[];
+  var parsed=[], hit=0, i;
+
+  parsed.push(["종목","나인샘플전자 (099990) · 일봉"]);
+  var per=/3개월|90일|분기/.test(t)?"최근 60거래일 강조":/1년|52주/.test(t)?"최근 260거래일":"최근 120거래일 (기본)";
+  parsed.push(["기간",per]);
+
+  function on(id,label){ if(!STATE.on[id]){ STATE.on[id]=true; } parsed.push(["지표 ON",label]); hit++; }
+  function setOsc(id,label){ STATE.osc=id; parsed.push(["하단 패널",label]); hit++; }
+
+  /* --- 지표 인식 --- */
+  var maM=t.match(/(\d+)\s*일\s*(선|이동평균|이평|단순이동평균)/);
+  if(/단순이동평균|sma|이평선|이동평균선|일선/i.test(t) && !/지수|가중/.test(t)) on("sma","SMA 5·20·60"+(maM?" ("+maM[1]+"일 요청)":""));
+  if(/지수이동평균|ema/i.test(t)) on("ema","EMA 20·60");
+  if(/가중이동평균|wma/i.test(t)) on("wma","WMA 20");
+  if(/볼린저|bollinger|밴드/i.test(t)) on("boll","볼린저밴드 (20, 2σ)");
+  if(/엔벨로프|envelope/i.test(t)) on("env","이동평균 엔벨로프 (20, ±6%)");
+  if(/파라볼릭|sar/i.test(t)) on("sar","파라볼릭 SAR (0.02, 0.2)");
+  if(/52주|신고가|신저가/i.test(t)) on("hl52","52주 신고·신저가");
+  if(/골든|골드|데드|크로스/i.test(t) && !/macd/i.test(t)) on("cross","골든·데드 크로스 (5·20)");
+
+  if(/rsi/i.test(t)) setOsc("rsi","RSI (14)");
+  else if(/macd/i.test(t)) setOsc("macd","MACD (12,26,9)");
+  else if(/스토캐스틱|스토케스틱|stochastic/i.test(t)) setOsc("stoch","스토캐스틱 슬로우 (14,3,3)");
+  else if(/모멘텀|momentum/i.test(t)) setOsc("mom","모멘텀 (10)");
+  else if(/차이킨|자금흐름|cmf/i.test(t)) setOsc("cmf","차이킨 자금흐름 (20)");
+  else if(/투자심리|심리선|psy/i.test(t)) setOsc("psy","투자심리선 (12)");
+  else if(/트릭스|trix/i.test(t)) setOsc("trix","트릭스 (12,9)");
+
+  /* --- 조건 스캔 --- */
+  var conds=[], m;
+  m=t.match(/rsi\s*(?:가|는|이)?\s*(\d{1,3})\s*(이하|아래|미만|밑)/i);
+  if(m) conds.push({name:"RSI ≤ "+m[1], f:function(i){ return IND.rsi[i]!=null && IND.rsi[i]<=+m[1]; }});
+  m=t.match(/rsi\s*(?:가|는|이)?\s*(\d{1,3})\s*(이상|위|초과|넘)/i);
+  if(m) conds.push({name:"RSI ≥ "+m[1], f:function(i){ return IND.rsi[i]!=null && IND.rsi[i]>=+m[1]; }});
+  if(/과매도/.test(t)) conds.push({name:"과매도 (RSI≤30)", f:function(i){ return IND.rsi[i]!=null&&IND.rsi[i]<=30; }});
+  if(/과매수/.test(t)){
+    if(/스토캐스틱|스토케스틱/.test(t)) conds.push({name:"스토캐스틱 %K≥80", f:function(i){ return IND.stoch.k[i]!=null&&IND.stoch.k[i]>=80; }});
+    else conds.push({name:"과매수 (RSI≥70)", f:function(i){ return IND.rsi[i]!=null&&IND.rsi[i]>=70; }});
+  }
+  if(/볼린저.*(하단|아래)|하단.*(터치|이탈|돌파)/.test(t))
+    conds.push({name:"볼린저 하단 이탈·터치", f:function(i){ return IND.boll.lo[i]!=null && DATA[i].l<=IND.boll.lo[i]*1.002; }});
+  if(/볼린저.*(상단|위)|상단.*(터치|돌파)/.test(t))
+    conds.push({name:"볼린저 상단 돌파·터치", f:function(i){ return IND.boll.up[i]!=null && DATA[i].h>=IND.boll.up[i]*0.998; }});
+  if(/macd/i.test(t)&&/골든|골드|상향|크로스/.test(t))
+    conds.push({name:"MACD 시그널 상향 돌파", f:function(i){
+      return i>0&&IND.macd.line[i]!=null&&IND.macd.sig[i]!=null&&IND.macd.line[i-1]<=IND.macd.sig[i-1]&&IND.macd.line[i]>IND.macd.sig[i]; }});
+  if(/(5일|단기).*(20일|장기).*(위|돌파|뚫)|골든크로스|골드크로스/.test(t))
+    conds.push({name:"골든크로스 (SMA5 > SMA20)", f:function(i){
+      return i>0&&IND.sma5[i]!=null&&IND.sma20[i]!=null&&IND.sma5[i-1]<=IND.sma20[i-1]&&IND.sma5[i]>IND.sma20[i]; }});
+  if(/데드크로스/.test(t))
+    conds.push({name:"데드크로스 (SMA5 < SMA20)", f:function(i){
+      return i>0&&IND.sma5[i]!=null&&IND.sma20[i]!=null&&IND.sma5[i-1]>=IND.sma20[i-1]&&IND.sma5[i]<IND.sma20[i]; }});
+  if(/52주\s*신고가/.test(t))
+    conds.push({name:"52주 신고가 경신", f:function(i){ return DATA[i].h>=IND.hi52[i]*0.999; }});
+  if(/52주\s*신저가/.test(t))
+    conds.push({name:"52주 신저가 경신", f:function(i){ return DATA[i].l<=IND.lo52[i]*1.001; }});
+  if(/거래량.*(급증|폭증|터진|증가)/.test(t)){
+    var s=surge();
+    nl.zones.push({i0:s.i0,i1:s.i1,text:"거래량 급증"});
+    parsed.push(["구간 스캔","10일 누적 거래량 최대 "+dstr(s.i0)+"~"+dstr(s.i1)]);
+    hit++;
+  }
+  if(/급등/.test(t)){
+    var bi=I0,bv=-1e18;
+    for(i=I0;i<TOTAL-12;i++){ var r2=DATA[i+12].c/DATA[i].c; if(r2>bv){bv=r2;bi=i;} }
+    nl.zones.push({i0:bi,i1:bi+12,text:"급등 구간 +"+((bv-1)*100).toFixed(1)+"%"});
+    parsed.push(["구간 스캔","12일 상승률 최대 "+dstr(bi)+"~"+dstr(bi+12)]);
+    hit++;
+  }
+  if(/피보나치|되돌림/.test(t)){
+    var lo=1e18,hi=-1e18,li=I0;
+    for(i=I0;i<TOTAL;i++){ if(DATA[i].l<lo){lo=DATA[i].l;li=i;} if(DATA[i].h>hi) hi=DATA[i].h; }
+    nl.tools.push({kind:"fib",hi:hi,lo:lo,i0:Math.max(I0,li-2)});
+    parsed.push(["도구","피보나치 되돌림 "+won(lo)+" ~ "+won(hi)]);
+    hit++;
+  }
+  if(/헤드앤숄더|헤드 앤 숄더|머리어깨/i.test(t)){
+    var pk=HIGHS.slice().sort(function(a,b){return b.p-a.p;}), hd=pk[0], L=null,R=null,k;
+    for(k=0;k<pk.length;k++) if(pk[k].i<hd.i-8){L=pk[k];break;}
+    for(k=0;k<pk.length;k++) if(pk[k].i>hd.i+8){R=pk[k];break;}
+    if(L&&R){
+      var a1=null,a2=null;
+      for(k=0;k<LOWS.length;k++){
+        if(LOWS[k].i>L.i&&LOWS[k].i<hd.i&&(!a1||LOWS[k].p<a1.p)) a1=LOWS[k];
+        if(LOWS[k].i>hd.i&&LOWS[k].i<R.i&&(!a2||LOWS[k].p<a2.p)) a2=LOWS[k];
+      }
+      if(a1&&a2){
+        nl.tools.push({kind:"pattern",pts:[L,a1,hd,a2,R],neck:[a1,a2],text:"헤드앤숄더"});
+        parsed.push(["패턴","헤드앤숄더 · 넥라인 "+won((a1.p+a2.p)/2)]);
+        hit++;
+      }
+    }
+  }
+
+  /* 조건 교집합 스캔 */
+  if(conds.length){
+    var days=[];
+    for(i=I0;i<TOTAL;i++){
+      var all=true;
+      for(var q=0;q<conds.length;q++) if(!conds[q].f(i)){ all=false; break; }
+      if(all) days.push(i);
+    }
+    for(q=0;q<conds.length;q++) parsed.push(["조건",conds[q].name]);
+    if(days.length){
+      for(i=0;i<days.length;i++) nl.marks.push({i:days[i],color:BRASS});
+      var show=days.slice(-6).map(dstr).join(" · ");
+      parsed.push(["충족일",days.length+"일"+(days.length>6?" (최근 6개) ":" ")+show]);
+    } else parsed.push(["충족일","해당 조건을 만족하는 날이 없습니다"]);
+    hit++;
+    if(conds.some(function(x){return /볼린저/.test(x.name);})) STATE.on.boll=true;
+    if(conds.some(function(x){return /크로스|SMA/.test(x.name);})) STATE.on.cross=true;
+    if(conds.some(function(x){return /52주/.test(x.name);})) STATE.on.hl52=true;
+    if(conds.some(function(x){return /RSI/.test(x.name);}) && STATE.osc==="none") STATE.osc="rsi";
+  }
+
+  var want3D=/3d|삼디|입체|돌려|회전/i.test(t);
+  if(want3D){ parsed.push(["뷰","3D 지표 레이어로 전환"]); hit++; }
+  if(!hit){
+    parsed.push(["결과","해석 가능한 지시를 찾지 못했습니다"]);
+    parsed.push(["다시 시도","지표명(볼린저·RSI·MACD…) 또는 조건(30 이하, 골든크로스)을 넣어 보세요"]);
+  }
+
+  nlHint.classList.add("hide");
+  refreshAll();
+
+  /* 등장 애니메이션 */
+  var items=nl.tools.concat(nl.zones).concat(nl.marks);
+  if(reduceMotion()){ items.forEach(function(x){x.t=1;}); nl.draw(); }
+  else{
+    items.forEach(function(x){ x.t=0; });
+    var t0=performance.now();
+    (function step(now){
+      var k=Math.min(1,(now-t0)/900);
+      items.forEach(function(x,idx){
+        var d=Math.min(0.6, idx*0.03);
+        var kk=Math.max(0,Math.min(1,(k-d)/(1-d)));
+        x.t=1-Math.pow(1-kk,3);
+      });
+      nl.draw();
+      if(k<1) requestAnimationFrame(step);
+    })(t0);
+  }
+
+  var html='<h3>해석된 지시</h3><ul class="parsed">';
+  for(i=0;i<parsed.length;i++)
+    html+='<li style="animation-delay:'+(i*60)+'ms"><i>'+String(i+1).padStart(2,"0")+
+          '</i><div><b>'+parsed[i][0]+'</b> · '+parsed[i][1]+'</div></li>';
+  html+='</ul>';
+  nlReadout.innerHTML=html;
+
+  if(want3D) setTimeout(function(){ selectTab(1); },800);
+}
+document.getElementById("nlGo").addEventListener("click",function(){ runNL(document.getElementById("nlInput").value); });
+document.getElementById("nlInput").addEventListener("keydown",function(e){ if(e.key==="Enter") runNL(this.value); });
+document.getElementById("nlPresets").querySelectorAll(".chip").forEach(function(b){
+  b.addEventListener("click",function(){
+    document.getElementById("nlInput").value=b.textContent;
+    runNL(b.textContent);
+  });
+});
+
+/* =========================================================
+   8. 탭
+   ========================================================= */
+var tabs=document.querySelectorAll(".tab"), panels=document.querySelectorAll(".panel");
+function selectTab(idx){
+  for(var i=0;i<tabs.length;i++){
+    tabs[i].setAttribute("aria-selected",i===idx?"true":"false");
+    panels[i].classList.toggle("on",i===idx);
+  }
+  if(idx===1) init3D();
+  if(idx===0){ sketch.resize(); sketch.draw(); }
+  if(idx===2){ nl.resize(); nl.draw(); }
+}
+tabs.forEach(function(tb,i){ tb.addEventListener("click",function(){ selectTab(i); }); });
+
+refreshAll();
+})();
+</script>
+</body>
+</html>
