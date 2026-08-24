@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>나인메모스 · AI 차트 랩</title>
+<style>
+:root{
+  --paper:#F2F1EE;
+  --card:#FBFAF8;
+  --line:#E7E6E1;
+  --line-soft:#EFEEEA;
+  --ink:#1B2430;
+  --ink-2:#4B5563;
+  --muted:#8A9099;
+  --axis:#A8AEB6;
+  --price:#9BA2AA;
+  --blue:#1D6FE8;
+  --blue-lt:#7CC4F5;
+  --blue-pale:#BFD9F5;
+  --slate:#4B5563;
+  --up:#DA3B32;
+  --down:#2563EB;
+  --ai:#C0812E;
+  --ai-soft:rgba(192,129,46,.10);
+  --teal:#12A594;
+  --violet:#7A5AF8;
+  --pink:#DB6BA6;
+  --font:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,-apple-system,sans-serif;
+  --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);color:var(--ink);font-family:var(--font);
+  -webkit-font-smoothing:antialiased;line-height:1.55;
+}
+.noise{
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3"/><feColorMatrix type="saturate" values="0"/></filter><rect width="140" height="140" filter="url(%23n)" opacity="0.04"/></svg>');
+}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 18px 56px;}
+
+/* ---------- header ---------- */
+.brandline{display:flex;align-items:center;gap:9px;margin-bottom:14px;}
+.brandline .dot{width:7px;height:7px;border-radius:50%;background:var(--blue);}
+.brandline span{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-family:var(--mono);}
+h1{font-size:clamp(24px,4vw,36px);line-height:1.16;margin:0 0 10px;font-weight:800;letter-spacing:-.032em;color:var(--ink);}
+h1 em{font-style:normal;color:var(--blue);}
+.lede{max-width:62ch;color:var(--ink-2);font-size:14.5px;margin:0;}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:4px;margin:24px 0 0;flex-wrap:wrap;}
+.tab{
+  appearance:none;background:transparent;border:1px solid transparent;border-radius:999px;
+  color:var(--muted);font-family:var(--font);font-size:13.5px;font-weight:600;
+  padding:8px 16px;cursor:pointer;transition:all .16s;
+}
+.tab:hover{color:var(--ink);background:rgba(0,0,0,.03);}
+.tab[aria-selected="true"]{color:var(--blue);border-color:var(--blue);background:#fff;}
+.tab:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+
+.panel{display:none;}
+.panel.on{display:block;}
+
+/* ---------- shell : 좌측 지표 레일 + 우측 차트 ---------- */
+.shell{
+  display:grid;grid-template-columns:190px 1fr;gap:0;
+  margin-top:18px;background:var(--card);border:1px solid var(--line);
+  border-radius:18px;overflow:hidden;
+}
+@media (max-width:900px){.shell{grid-template-columns:1fr;}}
+
+.rail{padding:22px 16px 24px;border-right:1px solid var(--line-soft);}
+@media (max-width:900px){.rail{border-right:0;border-bottom:1px solid var(--line-soft);}}
+.rail h2{font-size:15.5px;font-weight:700;letter-spacing:-.02em;margin:0 0 12px;color:var(--ink);}
+.rail h2.spaced{margin-top:26px;}
+.pills{display:flex;flex-direction:column;gap:6px;}
+@media (max-width:900px){.pills{flex-direction:row;flex-wrap:wrap;}}
+.pill{
+  appearance:none;width:100%;text-align:center;
+  background:#fff;border:1px solid var(--line);border-radius:999px;
+  color:var(--ink-2);font-family:var(--font);font-size:12.5px;font-weight:500;
+  padding:7px 10px;cursor:pointer;transition:all .15s;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+@media (max-width:900px){.pill{width:auto;}}
+.pill:hover{border-color:#CFCEC8;color:var(--ink);}
+.pill[aria-pressed="true"]{border-color:var(--blue);color:var(--blue);font-weight:600;box-shadow:0 0 0 1px var(--blue) inset;}
+.pill:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+.railnote{font-size:11.5px;color:var(--muted);margin:14px 0 0;line-height:1.5;}
+
+.main{padding:20px 22px 22px;min-width:0;}
+
+/* ---------- chart head ---------- */
+.chead{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
+.sym{display:flex;align-items:baseline;gap:8px;}
+.sym b{font-size:15px;font-weight:700;letter-spacing:-.01em;}
+.sym .code{font-size:11.5px;color:var(--muted);font-family:var(--mono);}
+.sym .px{font-size:12.5px;font-family:var(--mono);color:var(--ink-2);}
+.hright{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.legend{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.lg{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink-2);}
+.lg i{display:block;width:14px;height:3px;border-radius:2px;}
+.unit{font-size:11.5px;color:var(--muted);}
+.period{
+  appearance:none;background:#fff;border:1px solid var(--line);border-radius:999px;
+  font-family:var(--font);font-size:12px;color:var(--ink-2);padding:6px 30px 6px 13px;cursor:pointer;
+  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="%236B7280" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  background-repeat:no-repeat;background-position:right 11px center;
+}
+.period:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+
+.chartbox{position:relative;}
+.ec{width:100%;height:400px;}
+.ec.tall{height:470px;}
+#gl{height:440px;cursor:grab;}
+#gl.dragging{cursor:grabbing;}
+@media (max-width:900px){.ec{height:330px;} .ec.tall{height:390px;} #gl{height:320px;}}
+
+#sketchLayer{position:absolute;inset:0;z-index:5;cursor:crosshair;touch-action:none;}
+#sketchLayer.off{pointer-events:none;}
+
+.oschead{font-size:15.5px;font-weight:700;letter-spacing:-.02em;margin:14px 0 0;color:var(--ink);}
+
+.hint{
+  position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);text-align:center;
+  pointer-events:none;transition:opacity .4s;font-size:12.5px;color:var(--ink-2);width:min(90%,340px);
+  background:rgba(255,255,255,.93);padding:13px 16px;border-radius:12px;
+  border:1px solid var(--line);box-shadow:0 2px 14px rgba(27,36,48,.06);z-index:6;
+}
+.hint .big{display:block;font-size:14.5px;color:var(--ink);font-weight:700;margin-bottom:5px;letter-spacing:-.015em;}
+.hint.hide{opacity:0;}
+
+/* ---------- result strip ---------- */
+.strip{
+  margin-top:16px;border-top:1px solid var(--line-soft);padding-top:14px;
+  display:grid;grid-template-columns:1fr 1fr;gap:18px;
+}
+@media (max-width:720px){.strip{grid-template-columns:1fr;}}
+.strip h3{
+  font-size:10.5px;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;margin:0 0 8px;
+}
+.rtype{font-size:16px;font-weight:700;letter-spacing:-.02em;margin:0 0 2px;color:var(--ink);}
+.rsub{font-size:12.5px;color:var(--muted);margin:0 0 10px;}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--line-soft);font-size:12.5px;}
+.kv span{color:var(--muted);}
+.kv b{font-family:var(--mono);font-weight:500;color:var(--ink);}
+.empty{color:var(--muted);font-size:12.5px;margin:0;}
+.confbar{height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:5px;}
+.confbar i{display:block;height:100%;background:var(--ai);width:0;transition:width .6s cubic-bezier(.2,.8,.2,1);}
+.tinybtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;}
+.tiny{
+  appearance:none;background:#fff;border:1px solid var(--line);border-radius:999px;
+  color:var(--ink-2);font-family:var(--font);font-size:11.5px;padding:5px 11px;cursor:pointer;transition:all .15s;
+}
+.tiny:hover{border-color:#CFCEC8;color:var(--ink);}
+.tiny[aria-pressed="true"]{border-color:var(--blue);color:var(--blue);font-weight:600;}
+
+/* ---------- prompt ---------- */
+.prompt{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+.prompt input{
+  flex:1;min-width:230px;background:#fff;border:1px solid var(--line);border-radius:10px;
+  color:var(--ink);font-family:var(--font);font-size:13.5px;padding:11px 14px;
+}
+.prompt input::placeholder{color:#B4B8BE;}
+.prompt input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(29,111,232,.10);}
+.go{
+  appearance:none;background:var(--blue);color:#fff;border:0;border-radius:10px;
+  font-family:var(--font);font-size:13.5px;font-weight:700;padding:11px 20px;cursor:pointer;
+}
+.go:hover{background:#1760CD;}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}
+.parsed{list-style:none;margin:0;padding:0;}
+.parsed li{
+  display:flex;gap:8px;align-items:flex-start;font-size:12.5px;padding:6px 0;
+  border-top:1px solid var(--line-soft);opacity:0;transform:translateY(4px);
+  animation:rise .32s cubic-bezier(.2,.8,.2,1) forwards;color:var(--ink-2);
+}
+.parsed li:first-child{border-top:0;}
+.parsed li i{font-style:normal;color:var(--ai);font-family:var(--mono);font-size:10px;padding-top:3px;}
+.parsed li b{font-weight:600;color:var(--ink);}
+@keyframes rise{to{opacity:1;transform:none;}}
+
+/* ---------- 3d rail ---------- */
+.ctrl{margin-bottom:18px;}
+.ctrl label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;}
+.ctrl label b{font-family:var(--mono);color:var(--ink);font-weight:500;}
+input[type=range]{width:100%;appearance:none;height:3px;background:var(--line);border-radius:2px;outline:none;}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--blue);cursor:pointer;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--blue);
+  cursor:pointer;border:2px solid #fff;}
+
+/* ---------- footer ---------- */
+.note{margin-top:26px;font-size:11.5px;color:var(--muted);line-height:1.7;}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important;}}
+</style>
+</head>
+<body class="noise">
+<div class="wrap">
+
+  <div class="brandline"><span class="dot"></span><span>NineMemos · 차트분석 · AI Lab 프로토타입</span></div>
+  <h1>대충 그으면, <em>AI가 정확한 지표로</em> 바꿔 드립니다.</h1>
+  <p class="lede">스마트 칠판이 손그림을 정밀한 함수 그래프로 바꾸는 방식을, 나인메모스 차트분석 화면 위에 얹었습니다.
+  손으로 그은 선은 실제 고점·저점과 지표 라인에 스냅되고, 문장으로 지시하면 지표 조합이 그대로 켜집니다.</p>
+
+  <div class="tabs" role="tablist" aria-label="시연 모드">
+    <button class="tab" role="tab" aria-selected="true" id="t1">스케치 인식</button>
+    <button class="tab" role="tab" aria-selected="false" id="t2">3D 지표 레이어</button>
+    <button class="tab" role="tab" aria-selected="false" id="t3">말로 그리는 차트</button>
+  </div>
+
+  <!-- ================= PANEL 1 ================= -->
+  <section class="panel on" id="p1" role="tabpanel">
+    <div class="shell">
+      <aside class="rail">
+        <h2>추세 및 변동성 지표</h2>
+        <div class="pills" data-family="overlay"></div>
+        <h2 class="spaced">오실레이터</h2>
+        <div class="pills" data-family="osc"></div>
+        <p class="railnote">지표를 켜 두면 손으로 그은 선이 해당 지표 라인에도 스냅됩니다.</p>
+      </aside>
+
+      <div class="main">
+        <div class="chead">
+          <div class="sym">
+            <b>나인샘플전자</b><span class="code">099990</span><span class="px" id="px1">—</span>
+          </div>
+          <div class="hright">
+            <div class="legend" id="legend1"></div>
+            <span class="unit">KRW</span>
+            <select class="period" id="period1" aria-label="기간 선택">
+              <option value="60">3개월</option>
+              <option value="120" selected>6개월</option>
+              <option value="250">1년</option>
+              <option value="260">전체</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="chartbox">
+          <div class="ec tall" id="chart1"></div>
+          <canvas id="sketchLayer"></canvas>
+          <div class="hint" id="sketchHint">
+            <span class="big">차트 위에 손으로 그려 보세요</span>
+            저점을 따라 비스듬히 · 가로로 한 줄 · 위아래로 크게 · 지그재그로 산 세 개.
+          </div>
+        </div>
+
+        <div class="strip">
+          <div id="readout">
+            <h3>AI 인식 결과</h3>
+            <p class="empty">차트 위에 선을 그으면 형태를 분석해 정밀 도구로 변환합니다.</p>
+          </div>
+          <div>
+            <h3>조작</h3>
+            <p class="empty">그리기 모드를 끄면 휠 확대·드래그 이동·툴팁 등 기본 차트 조작으로 돌아갑니다.</p>
+            <div class="tinybtns">
+              <button class="tiny" id="drawToggle" aria-pressed="true">그리기 모드</button>
+              <button class="tiny" id="lineToggle" aria-pressed="true">선 차트</button>
+              <button class="tiny" id="volToggle" aria-pressed="false">거래량</button>
+              <button class="tiny" id="undoBtn">되돌리기</button>
+              <button class="tiny" id="clearBtn">전체 지우기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PANEL 2 ================= -->
+  <section class="panel" id="p2" role="tabpanel">
+    <div class="shell">
+      <aside class="rail">
+        <h2>단면 잘라보기</h2>
+        <div class="ctrl">
+          <label for="cutPos">구간 중심<b id="cutPosVal">—</b></label>
+          <input type="range" id="cutPos" min="0" max="100" value="50" />
+        </div>
+        <div class="ctrl">
+          <label for="cutWidth">구간 폭<b id="cutWidthVal">—</b></label>
+          <input type="range" id="cutWidth" min="6" max="100" value="100" />
+        </div>
+        <h2 class="spaced">시점</h2>
+        <div class="pills">
+          <button class="pill" data-view="front" aria-pressed="true">정면</button>
+          <button class="pill" data-view="iso" aria-pressed="false">비스듬히</button>
+          <button class="pill" data-view="top" aria-pressed="false">위에서</button>
+          <button class="pill" data-view="spin" aria-pressed="false">자동 회전</button>
+        </div>
+        <p class="railnote">레이어 구성은 스케치 인식 탭에서 켠 지표를 그대로 따라갑니다.</p>
+      </aside>
+      <div class="main">
+        <div class="chead">
+          <div class="sym"><b>나인샘플전자</b><span class="code">3중 평면 · 캔들 / 지표 / 거래량</span></div>
+          <div class="hright"><span class="unit" id="lay2">—</span></div>
+        </div>
+        <div class="chartbox">
+          <div id="gl"></div>
+          <div class="hint" id="glHint">
+            <span class="big">화면을 밀어 돌려 보세요</span>
+            앞은 캔들, 가운데는 켜 둔 지표, 뒤는 거래량과 모멘텀입니다. 폭을 좁히면 그 구간만 남습니다.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PANEL 3 ================= -->
+  <section class="panel" id="p3" role="tabpanel">
+    <div class="shell">
+      <aside class="rail">
+        <h2>해석된 지시</h2>
+        <div id="nlReadout"><p class="empty">문장에서 지표·기간·조건·패턴을 뽑아 차트 명령으로 변환합니다.</p></div>
+      </aside>
+      <div class="main">
+        <div class="chead">
+          <div class="sym"><b>나인샘플전자</b><span class="code">099990</span></div>
+          <div class="hright">
+            <div class="legend" id="legend3"></div>
+            <span class="unit">KRW</span>
+          </div>
+        </div>
+        <div class="chartbox">
+          <div class="ec tall" id="chart3"></div>
+          <div class="hint" id="nlHint">
+            <span class="big">문장으로 지시하면 지표가 켜집니다</span>
+            지표 이름·기간·조건을 넣어 보세요. 조건 충족일은 차트에 직접 표시됩니다.
+          </div>
+        </div>
+        <div class="prompt">
+          <input type="text" id="nlInput" placeholder="예: 볼린저밴드 하단 터치하고 RSI 30 아래인 날 찾아줘" />
+          <button class="go" id="nlGo">차트 그리기</button>
+        </div>
+        <div class="presets" id="nlPresets">
+          <button class="tiny">볼린저밴드 하단 터치하고 RSI 30 아래인 날 찾아줘</button>
+          <button class="tiny">MACD 골든크로스 시점에 거래량 급증한 구간</button>
+          <button class="tiny">5일선이 20일선 위로 뚫은 날 전부 표시해줘</button>
+          <button class="tiny">52주 신고가 근처에서 스토캐스틱 과매수 구간</button>
+          <button class="tiny">파라볼릭 SAR이랑 60일 지수이동평균 같이 그려줘</button>
+          <button class="tiny">3D로 돌려서 보여줘</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="note">
+    렌더러 Apache ECharts 5 · 3D 탭만 three.js · 모든 시세는 시연용 합성 데이터입니다.<br>
+    본 화면은 정보 제공 및 의사결정 보조 목적이며, 투자 판단의 최종 책임은 이용자에게 있습니다.
+  </p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   0. 합성 시세
+   ========================================================= */
+var TOTAL=260;
+function lcg(s){ return function(){ s=(s*1664525+1013904223)%4294967296; return s/4294967296; }; }
+var rnd=lcg(20260821);
+var DATA=(function(){
+  var arr=[],p=52000;
+  for(var i=0;i<TOTAL;i++){
+    var d=60;
+    if(i>60&&i<95)d=420; if(i>=95&&i<130)d=-320;
+    if(i>=150&&i<170)d=620; if(i>=170&&i<190)d=-540;
+    if(i>=200&&i<216)d=880; if(i>=216&&i<232)d=-460; if(i>=244)d=430;
+    var o=p,c=o+d+(rnd()-0.5)*1750;
+    var h=Math.max(o,c)+rnd()*820,l=Math.min(o,c)-rnd()*820;
+    var v=1.5e6+rnd()*1.0e6;
+    if(i>=200&&i<216)v*=2.9; if(i>=150&&i<162)v*=1.8; if(i>=244)v*=1.6;
+    arr.push({o:o,h:h,l:l,c:c,v:v}); p=c;
+  }
+  return arr;
+})();
+var DATES=(function(){
+  var out=[],d=new Date(2026,7,21);
+  for(var i=0;i<TOTAL;i++){
+    out.unshift(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));
+    do{ d.setDate(d.getDate()-1); }while(d.getDay()===0||d.getDay()===6);
+  }
+  return out;
+})();
+function ymd(i){ return DATES[i].replace(/-/g,"."); }
+function mmdd(i){ var p=DATES[i].split("-"); return p[1]+"/"+p[2]; }
+function monthOf(i){ return +DATES[i].split("-")[1]; }
+function isMonthStart(i){ return i===0 || monthOf(i)!==monthOf(i-1); }
+
+var UP="#DA3B32",DOWN="#2563EB",BLUE="#1D6FE8",BLUELT="#7CC4F5",BLUEPALE="#BFD9F5",
+    PRICE="#9BA2AA",SLATE="#4B5563",AI="#C0812E",TEAL="#12A594",VIOLET="#7A5AF8",PINK="#DB6BA6",
+    INK="#1B2430",MUTED="#8A9099",AXIS="#A8AEB6",LINE="#E7E6E1";
+function won(v){ return (v==null||isNaN(v))?"—":Math.round(v).toLocaleString("ko-KR"); }
+function nz(v){ return (v==null||isNaN(v))?null:v; }
+
+/* =========================================================
+   1. 지표 계산
+   ========================================================= */
+var C=DATA.map(function(d){return d.c;}),Hh=DATA.map(function(d){return d.h;}),
+    Ll=DATA.map(function(d){return d.l;}),V=DATA.map(function(d){return d.v;});
+function SMA(s,n){var o=[],x=0;for(var i=0;i<s.length;i++){x+=s[i];if(i>=n)x-=s[i-n];o.push(i>=n-1?x/n:null);}return o;}
+function EMA(s,n){var o=[],k=2/(n+1),pv=null,su=0;for(var i=0;i<s.length;i++){
+  if(i<n-1){su+=s[i];o.push(null);continue;}if(i===n-1){su+=s[i];pv=su/n;o.push(pv);continue;}
+  pv=s[i]*k+pv*(1-k);o.push(pv);}return o;}
+function EMAs(s,n){var o=[],k=2/(n+1),pv=null,su=0,c=0;for(var i=0;i<s.length;i++){
+  if(s[i]==null){o.push(null);continue;}c++;
+  if(c<n){su+=s[i];o.push(null);continue;}if(c===n){su+=s[i];pv=su/n;o.push(pv);continue;}
+  pv=s[i]*k+pv*(1-k);o.push(pv);}return o;}
+function WMA(s,n){var o=[],dn=n*(n+1)/2;for(var i=0;i<s.length;i++){
+  if(i<n-1){o.push(null);continue;}var x=0;for(var j=0;j<n;j++)x+=s[i-n+1+j]*(j+1);o.push(x/dn);}return o;}
+function BOLL(n,k){var m=SMA(C,n),u=[],l=[];for(var i=0;i<C.length;i++){
+  if(m[i]==null){u.push(null);l.push(null);continue;}
+  var x=0;for(var j=i-n+1;j<=i;j++)x+=Math.pow(C[j]-m[i],2);
+  var sd=Math.sqrt(x/n);u.push(m[i]+k*sd);l.push(m[i]-k*sd);}return{mid:m,up:u,lo:l};}
+function ENV(n,p){var m=SMA(C,n);return{mid:m,
+  up:m.map(function(x){return x==null?null:x*(1+p);}),lo:m.map(function(x){return x==null?null:x*(1-p);})};}
+function PSAR(st,mx){var o=[null],af=st,ep=Hh[0],up=true,cu=Ll[0];
+  for(var i=1;i<C.length;i++){var nx=cu+af*(ep-cu);
+    if(up){nx=Math.min(nx,Ll[i-1],Ll[Math.max(0,i-2)]);
+      if(Ll[i]<nx){up=false;nx=ep;ep=Ll[i];af=st;}else if(Hh[i]>ep){ep=Hh[i];af=Math.min(mx,af+st);}}
+    else{nx=Math.max(nx,Hh[i-1],Hh[Math.max(0,i-2)]);
+      if(Hh[i]>nx){up=true;nx=ep;ep=Hh[i];af=st;}else if(Ll[i]<ep){ep=Ll[i];af=Math.min(mx,af+st);}}
+    cu=nx;o.push({v:cu,up:up});}return o;}
+function RMAX(s,n){var o=[];for(var i=0;i<s.length;i++){var m=-1e18;for(var j=Math.max(0,i-n+1);j<=i;j++)m=Math.max(m,s[j]);o.push(m);}return o;}
+function RMIN(s,n){var o=[];for(var i=0;i<s.length;i++){var m=1e18;for(var j=Math.max(0,i-n+1);j<=i;j++)m=Math.min(m,s[j]);o.push(m);}return o;}
+function RSI(n){var o=[],ag=0,al=0;for(var i=0;i<C.length;i++){
+  if(i===0){o.push(null);continue;}var ch=C[i]-C[i-1],g=Math.max(0,ch),l=Math.max(0,-ch);
+  if(i<=n){ag+=g/n;al+=l/n;o.push(i===n?100-100/(1+ag/(al||1e-9)):null);continue;}
+  ag=(ag*(n-1)+g)/n;al=(al*(n-1)+l)/n;o.push(100-100/(1+ag/(al||1e-9)));}return o;}
+function MACD(f,s,g){var ef=EMA(C,f),es=EMA(C,s),ln=[],i;
+  for(i=0;i<C.length;i++)ln.push(ef[i]==null||es[i]==null?null:ef[i]-es[i]);
+  var sg=EMAs(ln,g);return{line:ln,sig:sg,hist:ln.map(function(x,j){return x==null||sg[j]==null?null:x-sg[j];})};}
+function SMAs(s,n){var o=[],b=[];for(var i=0;i<s.length;i++){if(s[i]==null){o.push(null);continue;}
+  b.push(s[i]);if(b.length>n)b.shift();o.push(b.length<n?null:b.reduce(function(a,c){return a+c;},0)/n);}return o;}
+function STOCH(n,k1,k2){var f=[],i;
+  for(i=0;i<C.length;i++){if(i<n-1){f.push(null);continue;}
+    var hi=-1e18,lo=1e18;for(var j=i-n+1;j<=i;j++){hi=Math.max(hi,Hh[j]);lo=Math.min(lo,Ll[j]);}
+    f.push((C[i]-lo)/((hi-lo)||1e-9)*100);}
+  var K=SMAs(f,k1);return{k:K,d:SMAs(K,k2)};}
+function CMF(n){var m=[],i;
+  for(i=0;i<C.length;i++){var r=Hh[i]-Ll[i];m.push(r===0?0:((C[i]-Ll[i])-(Hh[i]-C[i]))/r*V[i]);}
+  var o=[];for(i=0;i<C.length;i++){if(i<n-1){o.push(null);continue;}
+    var a=0,b=0;for(var j=i-n+1;j<=i;j++){a+=m[j];b+=V[j];}o.push(a/(b||1));}return o;}
+function PSY(n){var o=[];for(var i=0;i<C.length;i++){if(i<n){o.push(null);continue;}
+  var u=0;for(var j=i-n+1;j<=i;j++)if(C[j]>C[j-1])u++;o.push(u/n*100);}return o;}
+function MOM(n){var o=[];for(var i=0;i<C.length;i++)o.push(i<n?null:C[i]-C[i-n]);return o;}
+function TRIX(n,sg){var e1=EMAs(C,n),e2=EMAs(e1,n),e3=EMAs(e2,n),ln=[];
+  for(var i=0;i<C.length;i++)ln.push(e3[i]==null||i===0||e3[i-1]==null?null:(e3[i]-e3[i-1])/e3[i-1]*10000);
+  return{line:ln,sig:EMAs(ln,sg)};}
+function CROSS(a,b){var o=[];for(var i=1;i<a.length;i++){
+  if(a[i]==null||b[i]==null||a[i-1]==null||b[i-1]==null)continue;
+  if(a[i-1]<=b[i-1]&&a[i]>b[i])o.push({i:i,gold:true});
+  if(a[i-1]>=b[i-1]&&a[i]<b[i])o.push({i:i,gold:false});}return o;}
+
+var IND={sma5:SMA(C,5),sma20:SMA(C,20),sma60:SMA(C,60),
+  ema20:EMA(C,20),ema60:EMA(C,60),wma20:WMA(C,20),
+  boll:BOLL(20,2),env:ENV(20,0.06),sar:PSAR(0.02,0.2),
+  hi52:RMAX(Hh,250),lo52:RMIN(Ll,250),
+  rsi:RSI(14),macd:MACD(12,26,9),stoch:STOCH(14,3,3),
+  cmf:CMF(20),psy:PSY(12),mom:MOM(10),trix:TRIX(12,9)};
+IND.cross=CROSS(IND.sma5,IND.sma20);
+
+/* =========================================================
+   2. 상태
+   ========================================================= */
+var OVERLAY_DEFS=[
+  {id:"sma",label:"단순이동평균선 (SMA)"},
+  {id:"ema",label:"지수이동평균선 (EMA)"},
+  {id:"wma",label:"가중이동평균선 (WMA)"},
+  {id:"boll",label:"볼린저밴드"},
+  {id:"env",label:"이동평균 엔벨로프"},
+  {id:"sar",label:"파라볼릭 SAR"},
+  {id:"hl52",label:"52주 신고/신저가"},
+  {id:"cross",label:"골든/데드 크로스"}
+];
+var OSC_DEFS=[
+  {id:"mom",label:"모멘텀"},{id:"stoch",label:"스토캐스틱 슬로우"},
+  {id:"cmf",label:"차이킨 자금흐름"},{id:"psy",label:"투자심리선"},
+  {id:"trix",label:"트릭스"},{id:"macd",label:"MACD"},{id:"rsi",label:"RSI"},
+  {id:"none",label:"표시 안 함"}
+];
+var STATE={on:{sma:true},osc:"mom",lineMode:true,showVol:false};
+var ZOOM={start:53,end:100};
+
+function oscDef(){
+  var id=STATE.osc;
+  if(id==="rsi")   return {name:"RSI (14)",min:0,max:100,marks:[70,30],lines:[{n:"RSI",v:IND.rsi,c:SLATE}]};
+  if(id==="macd")  return {name:"MACD (12,26,9)",min:null,max:null,marks:[0],
+    lines:[{n:"MACD",v:IND.macd.line,c:BLUE},{n:"Signal",v:IND.macd.sig,c:PINK}],hist:{n:"OSC",v:IND.macd.hist}};
+  if(id==="stoch") return {name:"스토캐스틱 슬로우 (14,3,3)",min:0,max:100,marks:[80,20],
+    lines:[{n:"%K",v:IND.stoch.k,c:SLATE},{n:"%D",v:IND.stoch.d,c:BLUELT}]};
+  if(id==="mom")   return {name:"모멘텀 (10)",min:null,max:null,marks:[0],lines:[{n:"모멘텀",v:IND.mom,c:SLATE}]};
+  if(id==="cmf")   return {name:"차이킨 자금흐름 (20)",min:-.35,max:.35,marks:[.1,0,-.1],
+    lines:[{n:"CMF",v:IND.cmf,c:TEAL,area:true}]};
+  if(id==="psy")   return {name:"투자심리선 (12)",min:0,max:100,marks:[75,25],lines:[{n:"투자심리",v:IND.psy,c:SLATE}]};
+  if(id==="trix")  return {name:"트릭스 (12,9)",min:null,max:null,marks:[0],
+    lines:[{n:"TRIX",v:IND.trix.line,c:SLATE},{n:"Signal",v:IND.trix.sig,c:BLUELT}]};
+  return null;
+}
+
+/* =========================================================
+   3. ECharts 옵션
+   ========================================================= */
+function axisX(gridIndex,showLabel){
+  return {
+    type:"category",data:DATES,gridIndex:gridIndex,boundaryGap:false,
+    axisLine:{show:false},axisTick:{show:false},splitLine:{show:false},
+    axisLabel:showLabel?{
+      color:AXIS,fontSize:10.5,margin:12,
+      interval:function(idx){ return idx===0||idx===TOTAL-1||isMonthStart(idx); },
+      formatter:function(v,idx){
+        var d=v.split("-");
+        if(v===DATES[0]) return DATES[0].replace(/-/g,".");
+        if(v===DATES[TOTAL-1]) return DATES[TOTAL-1].replace(/-/g,".");
+        return d[1]==="01" ? d[0] : (+d[1])+"월";
+      }
+    }:{show:false},
+    axisPointer:{label:{show:showLabel,backgroundColor:"#4B5563",color:"#fff",fontSize:10,
+      formatter:function(p){ return String(p.value).replace(/-/g,"."); }}}
+  };
+}
+function axisY(gridIndex,opts){
+  opts=opts||{};
+  return Object.assign({
+    gridIndex:gridIndex,position:"right",scale:true,
+    axisLine:{show:false},axisTick:{show:false},
+    splitLine:{show:false},
+    axisLabel:{color:AXIS,fontSize:10.5,margin:10,
+      formatter:opts.fmt||function(v){ return Math.round(v).toLocaleString("ko-KR"); }}
+  },opts.extra||{});
+}
+
+function buildOption(EX){
+  EX=EX||{tools:[],zones:[],hlines:[],vlines:[],fib:[]};
+  var osc=oscDef(), hasOsc=!!osc, vol=STATE.showVol;
+  var grids=[],xAxis=[],yAxis=[],series=[];
+
+  /* 그리드 배치 : 가격 / (거래량) / 오실레이터 */
+  var topH = hasOsc ? (vol?42:52) : (vol?64:76);
+  grids.push({left:8,right:66,top:16,height:topH+"%"});
+  var cursor=16+topH;
+  var volIdx=-1,oscIdx=-1;
+  if(vol){ volIdx=grids.length; grids.push({left:8,right:66,top:(cursor+6)+"%",height:"9%"}); cursor+=15; }
+  if(hasOsc){ oscIdx=grids.length; grids.push({left:8,right:66,top:(cursor+9)+"%",height:"22%"}); }
+
+  grids.forEach(function(_,i){ xAxis.push(axisX(i,i===grids.length-1)); });
+  yAxis.push(axisY(0));
+  if(vol) yAxis.push(axisY(volIdx,{extra:{splitNumber:1},fmt:function(v){return Math.round(v/10000)+"만";}}));
+  if(hasOsc) yAxis.push(axisY(oscIdx,{extra:{
+      splitNumber:1,scale:osc.min==null,
+      min:osc.min==null?undefined:osc.min,max:osc.max==null?undefined:osc.max},
+    fmt:function(v){ return Math.abs(v)>=1000?Math.round(v).toLocaleString("ko-KR"):(+v).toFixed(Math.abs(v)<1?2:0); }}));
+  var volY=vol?1:-1, oscY=hasOsc?(vol?2:1):-1;
+
+  /* --- 볼린저 밴드 --- */
+  if(STATE.on.boll){
+    series.push({name:"_base",type:"line",data:IND.boll.lo.map(nz),stack:"b",symbol:"none",
+      lineStyle:{opacity:0},silent:true,z:1});
+    series.push({name:"_band",type:"line",stack:"b",symbol:"none",silent:true,z:1,
+      data:IND.boll.up.map(function(u,i){return (u==null||IND.boll.lo[i]==null)?null:u-IND.boll.lo[i];}),
+      lineStyle:{opacity:0},areaStyle:{color:"rgba(29,111,232,.06)"}});
+    series.push(ln("볼린저 상단",IND.boll.up,BLUEPALE,1.1));
+    series.push(ln("볼린저 하단",IND.boll.lo,BLUEPALE,1.1));
+    series.push(ln("볼린저 중심",IND.boll.mid,BLUEPALE,1,"dashed"));
+  }
+  if(STATE.on.env){
+    series.push(ln("엔벨로프 상단",IND.env.up,TEAL,1.1,"dashed"));
+    series.push(ln("엔벨로프 하단",IND.env.lo,TEAL,1.1,"dashed"));
+  }
+
+  /* --- 가격 --- */
+  var mlData=[],maData=[];
+  if(STATE.on.hl52){
+    mlData.push(
+      {yAxis:IND.hi52[TOTAL-1],lineStyle:{color:UP,type:"dashed",width:1},
+       label:{formatter:"52주 신고 "+won(IND.hi52[TOTAL-1]),color:UP,fontSize:10,position:"insideStartTop"}},
+      {yAxis:IND.lo52[TOTAL-1],lineStyle:{color:DOWN,type:"dashed",width:1},
+       label:{formatter:"52주 신저 "+won(IND.lo52[TOTAL-1]),color:DOWN,fontSize:10,position:"insideStartBottom"}});
+  }
+  EX.hlines.forEach(function(h){
+    mlData.push({yAxis:h.price,lineStyle:{color:AI,type:"dashed",width:1.5},
+      label:{formatter:h.text+" "+won(h.price),color:AI,fontSize:10.5,position:"insideStartTop"}});
+  });
+  EX.vlines.forEach(function(m){
+    mlData.push({xAxis:DATES[m.i],lineStyle:{color:AI,type:"dotted",width:1,opacity:.85},label:{show:false}});
+  });
+  EX.fib.forEach(function(f){
+    mlData.push({yAxis:f.v,lineStyle:{color:f.key?AI:"rgba(192,129,46,.32)",type:"dashed",width:f.key?1.3:1},
+      label:{formatter:f.label,color:f.key?AI:"rgba(192,129,46,.7)",fontSize:9.5,position:"insideEndTop"}});
+  });
+  EX.zones.forEach(function(z){
+    maData.push([{xAxis:DATES[z.i0],label:{show:true,formatter:z.text||"",color:AI,fontSize:10,position:"insideTop"}},
+                 {xAxis:DATES[z.i1]}]);
+  });
+  var markLine={silent:true,symbol:"none",data:mlData,emphasis:{disabled:true}};
+  var markArea={silent:true,itemStyle:{color:"rgba(192,129,46,.09)"},data:maData};
+
+  if(STATE.lineMode){
+    series.push({name:"종가",type:"line",data:C,symbol:"none",z:5,
+      lineStyle:{color:PRICE,width:1.1},
+      markLine:markLine,markArea:markArea});
+  }else{
+    series.push({name:"캔들",type:"candlestick",z:5,
+      data:DATA.map(function(d){return [d.o,d.c,d.l,d.h];}),
+      itemStyle:{color:UP,color0:DOWN,borderColor:UP,borderColor0:DOWN},
+      markLine:markLine,markArea:markArea});
+  }
+
+  /* --- 이동평균 --- */
+  if(STATE.on.sma){
+    series.push(ln("5일",IND.sma5,"#C3CBD4",1.2),ln("20일",IND.sma20,BLUE,1.9),ln("60일",IND.sma60,BLUELT,1.9));
+  }
+  if(STATE.on.ema){ series.push(ln("EMA 20",IND.ema20,TEAL,1.5,"dashed"),ln("EMA 60",IND.ema60,PINK,1.5,"dashed")); }
+  if(STATE.on.wma){ series.push(ln("WMA 20",IND.wma20,VIOLET,1.5,"dotted")); }
+
+  if(STATE.on.cross){
+    if(!STATE.on.sma) series.push(ln("5일",IND.sma5,"#C3CBD4",1.2),ln("20일",IND.sma20,BLUE,1.6));
+    var pts=[];
+    IND.cross.forEach(function(cr){
+      pts.push({coord:[DATES[cr.i],IND.sma20[cr.i]],symbol:"triangle",
+        symbolRotate:cr.gold?0:180,symbolSize:9,symbolOffset:[0,cr.gold?-9:9],
+        itemStyle:{color:cr.gold?UP:DOWN},label:{show:false}});
+    });
+    series.push({name:"_cross",type:"scatter",data:[],silent:true,z:9,markPoint:{data:pts}});
+  }
+  if(STATE.on.sar){
+    series.push({name:"파라볼릭 SAR",type:"scatter",symbolSize:2.4,z:7,
+      data:IND.sar.map(function(s){return s?s.v:null;}),
+      itemStyle:{color:function(p){var s=IND.sar[p.dataIndex];return s&&s.up?TEAL:PINK;}}});
+  }
+
+  /* --- 스케치 인식 결과 --- */
+  EX.tools.forEach(function(t){
+    if(t.kind==="line"||t.kind==="snapline"){
+      series.push({name:t.text,type:"line",data:t.series,symbol:"none",z:8,connectNulls:true,
+        lineStyle:{color:AI,width:1.8},
+        endLabel:{show:true,formatter:t.text,color:AI,fontSize:10.5,distance:6}});
+    }
+    if(t.kind==="pattern"){
+      series.push({name:"헤드앤숄더",type:"line",data:t.series,z:8,connectNulls:true,
+        symbol:"circle",symbolSize:7,itemStyle:{color:AI},lineStyle:{color:AI,width:1.8},
+        markLine:{silent:true,symbol:"none",
+          data:[[{coord:[DATES[t.neck[0].i],t.neck[0].p]},{coord:[DATES[t.neck[1].i],t.neck[1].p]}]],
+          lineStyle:{color:AI,type:"dashed",width:1.3,opacity:.7}}});
+    }
+  });
+
+  /* --- 거래량 --- */
+  if(vol){
+    series.push({name:"거래량",type:"bar",xAxisIndex:volIdx,yAxisIndex:volY,
+      data:DATA.map(function(d){return d.v;}),barWidth:"55%",
+      itemStyle:{color:function(p){var d=DATA[p.dataIndex];
+        return d.c>=d.o?"rgba(218,59,50,.35)":"rgba(37,99,235,.30)";}}});
+  }
+
+  /* --- 오실레이터 --- */
+  if(hasOsc){
+    if(osc.hist){
+      series.push({name:osc.hist.n,type:"bar",xAxisIndex:oscIdx,yAxisIndex:oscY,
+        data:osc.hist.v.map(nz),barWidth:"55%",
+        itemStyle:{color:function(p){return p.data>=0?"rgba(218,59,50,.35)":"rgba(37,99,235,.30)";}}});
+    }
+    osc.lines.forEach(function(L,idx){
+      var s={name:L.n,type:"line",xAxisIndex:oscIdx,yAxisIndex:oscY,data:L.v.map(nz),
+        symbol:"none",lineStyle:{color:L.c,width:1.4},connectNulls:false,
+        endLabel:idx===0?{show:true,color:AXIS,fontSize:10.5,distance:6,
+          formatter:function(p){ return p.value==null?"":(Math.abs(p.value)>=1000?won(p.value):(+p.value).toFixed(Math.abs(p.value)<1?2:0)); }}:undefined};
+      if(L.area) s.areaStyle={color:"rgba(18,165,148,.10)"};
+      if(idx===0){
+        s.markLine={silent:true,symbol:"none",data:osc.marks.map(function(m){
+          return {yAxis:m,lineStyle:{color:m===0?"rgba(0,0,0,.10)":"rgba(0,0,0,.07)",type:"dashed",width:1},
+                  label:{formatter:String(m),color:AXIS,fontSize:9.5,position:"insideEndTop"}};})};
+      }
+      series.push(s);
+    });
+  }
+
+  var allX=grids.map(function(_,i){return i;});
+  return {
+    backgroundColor:"transparent",animation:true,animationDuration:400,
+    textStyle:{fontFamily:'"Pretendard","Apple SD Gothic Neo",system-ui,sans-serif',color:MUTED},
+    grid:grids,xAxis:xAxis,yAxis:yAxis,
+    axisPointer:{link:[{xAxisIndex:"all"}]},
+    tooltip:{trigger:"axis",
+      axisPointer:{type:"line",lineStyle:{color:"rgba(27,36,48,.18)",width:1}},
+      backgroundColor:"rgba(255,255,255,.97)",borderColor:LINE,borderWidth:1,
+      padding:[9,12],textStyle:{color:INK,fontSize:11.5},
+      extraCssText:"box-shadow:0 4px 18px rgba(27,36,48,.10);border-radius:10px;",
+      formatter:tipFmt},
+    dataZoom:[{type:"inside",xAxisIndex:allX,start:ZOOM.start,end:ZOOM.end,zoomOnMouseWheel:true}],
+    series:series
+  };
+}
+function ln(name,arr,color,w,dash){
+  return {name:name,type:"line",data:arr.map(nz),symbol:"none",z:6,
+    lineStyle:{color:color,width:w||1.4,type:dash||"solid"},connectNulls:false};
+}
+function tipFmt(params){
+  if(!params||!params.length) return "";
+  var i=params[0].dataIndex,d=DATA[i],chg=i>0?(d.c/DATA[i-1].c-1)*100:0;
+  var col=chg>=0?UP:DOWN;
+  var h='<div style="font-weight:700;color:'+INK+';margin-bottom:6px;font-size:12px">'+ymd(i)+'</div>';
+  h+=row("종가",'<span style="color:'+col+'">'+won(d.c)+" ("+(chg>=0?"+":"")+chg.toFixed(2)+"%)</span>");
+  if(!STATE.lineMode){ h+=row("시/고/저",won(d.o)+" · "+won(d.h)+" · "+won(d.l)); }
+  var seen={};
+  params.forEach(function(p){
+    if(p.seriesName.charAt(0)==="_"||p.seriesName==="캔들"||p.seriesName==="종가") return;
+    if(seen[p.seriesName]) return; seen[p.seriesName]=1;
+    var v=p.value; if(v==null||isNaN(v)) return;
+    var t=Math.abs(v)>=1000?won(v):(+v).toFixed(2);
+    var c=(typeof p.color==="string")?p.color:MUTED;
+    h+=row('<span style="color:'+c+'">●</span> '+p.seriesName,t);
+  });
+  return h;
+  function row(k,v){
+    return '<div style="display:flex;justify-content:space-between;gap:18px;line-height:1.7">'+
+      '<span style="color:'+MUTED+'">'+k+'</span><span style="font-family:ui-monospace,monospace">'+v+'</span></div>';
+  }
+}
+
+/* =========================================================
+   4. 인스턴스 · 범례
+   ========================================================= */
+var chart1=echarts.init(document.getElementById("chart1"));
+var chart3=echarts.init(document.getElementById("chart3"));
+var EX1={tools:[],zones:[],hlines:[],vlines:[],fib:[]};
+var EX3={tools:[],zones:[],hlines:[],vlines:[],fib:[]};
+[chart1,chart3].forEach(function(ch){
+  ch.on("dataZoom",function(){ var dz=ch.getOption().dataZoom[0]; ZOOM.start=dz.start; ZOOM.end=dz.end; });
+});
+function render1(){ chart1.setOption(buildOption(EX1),true); }
+function render3(){ chart3.setOption(buildOption(EX3),true); }
+
+function legendHTML(){
+  var out=[];
+  function add(label,color){ out.push('<span class="lg"><i style="background:'+color+'"></i>'+label+'</span>'); }
+  if(STATE.on.sma){ add("5일","#C3CBD4"); add("20일",BLUE); add("60일",BLUELT); }
+  if(STATE.on.ema){ add("EMA 20",TEAL); add("EMA 60",PINK); }
+  if(STATE.on.wma) add("WMA 20",VIOLET);
+  if(STATE.on.boll) add("볼린저",BLUEPALE);
+  if(STATE.on.env) add("엔벨로프",TEAL);
+  if(STATE.on.sar) add("SAR",TEAL);
+  if(!out.length) add("종가",PRICE);
+  return out.join("");
+}
+
+/* =========================================================
+   5. 스케치 레이어
+   ========================================================= */
+var layer=document.getElementById("sketchLayer"),lctx=layer.getContext("2d");
+var sketchHint=document.getElementById("sketchHint"),readout=document.getElementById("readout");
+var drawMode=true,drawing=false,strokePx=[];
+function sizeSketch(){
+  var box=document.getElementById("chart1").getBoundingClientRect();
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  layer.style.width=box.width+"px"; layer.style.height=box.height+"px";
+  layer.width=Math.round(box.width*dpr); layer.height=Math.round(box.height*dpr);
+  lctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function px2data(x,y){ var v=chart1.convertFromPixel({gridIndex:0},[x,y]); return v?{i:v[0],p:v[1]}:null; }
+function drawPencil(){
+  lctx.clearRect(0,0,layer.width,layer.height);
+  if(strokePx.length<2) return;
+  lctx.save();
+  lctx.strokeStyle="rgba(40,50,64,.72)";lctx.lineWidth=2.1;
+  lctx.lineJoin="round";lctx.lineCap="round";
+  lctx.beginPath();
+  strokePx.forEach(function(p,i){ i?lctx.lineTo(p.x,p.y):lctx.moveTo(p.x,p.y); });
+  lctx.stroke();lctx.restore();
+}
+layer.addEventListener("pointerdown",function(e){
+  if(!drawMode) return;
+  e.preventDefault();drawing=true;
+  var r=layer.getBoundingClientRect();
+  strokePx=[{x:e.clientX-r.left,y:e.clientY-r.top}];drawPencil();
+});
+layer.addEventListener("pointermove",function(e){
+  if(!drawing) return;
+  e.preventDefault();
+  var r=layer.getBoundingClientRect(),p={x:e.clientX-r.left,y:e.clientY-r.top},l=strokePx[strokePx.length-1];
+  if(Math.hypot(p.x-l.x,p.y-l.y)<2.5) return;
+  strokePx.push(p);drawPencil();
+});
+window.addEventListener("pointerup",function(){
+  if(!drawing) return;
+  drawing=false;
+  if(strokePx.length>=4){
+    var pts=strokePx.map(function(p){return px2data(p.x,p.y);}).filter(Boolean);
+    if(pts.length>=4){
+      sketchHint.classList.add("hide");
+      var r=recognize(pts);
+      applyTool(EX1,r);renderReadout(r);render1();
+    }
+  }
+  strokePx=[];lctx.clearRect(0,0,layer.width,layer.height);
+});
+function applyTool(EX,r){
+  if(r.kind==="hline") EX.hlines.push({price:r.price,text:r.text});
+  else if(r.kind==="zone") EX.zones.push({i0:r.i0,i1:r.i1,text:r.text});
+  else if(r.kind==="fib") EX.fib=r.levels;
+  else EX.tools.push(r);
+}
+document.getElementById("drawToggle").addEventListener("click",function(){
+  drawMode=!drawMode;this.setAttribute("aria-pressed",drawMode?"true":"false");
+  layer.classList.toggle("off",!drawMode);
+});
+document.getElementById("lineToggle").addEventListener("click",function(){
+  STATE.lineMode=!STATE.lineMode;
+  this.setAttribute("aria-pressed",STATE.lineMode?"true":"false");
+  this.textContent=STATE.lineMode?"선 차트":"캔들 차트";
+  refreshAll();
+});
+document.getElementById("volToggle").addEventListener("click",function(){
+  STATE.showVol=!STATE.showVol;
+  this.setAttribute("aria-pressed",STATE.showVol?"true":"false");
+  refreshAll();
+});
+document.getElementById("undoBtn").addEventListener("click",function(){
+  if(EX1.tools.length) EX1.tools.pop();
+  else if(EX1.hlines.length) EX1.hlines.pop();
+  else if(EX1.zones.length) EX1.zones.pop();
+  else EX1.fib=[];
+  render1();
+});
+document.getElementById("clearBtn").addEventListener("click",function(){
+  EX1={tools:[],zones:[],hlines:[],vlines:[],fib:[]};
+  readout.innerHTML='<h3>AI 인식 결과</h3><p class="empty">차트 위에 선을 그으면 형태를 분석해 정밀 도구로 변환합니다.</p>';
+  sketchHint.classList.remove("hide");render1();
+});
+document.getElementById("period1").addEventListener("change",function(){
+  var bars=+this.value;
+  ZOOM.start=Math.max(0,(TOTAL-bars)/TOTAL*100);ZOOM.end=100;
+  render1();render3();
+});
+
+/* =========================================================
+   6. 인식
+   ========================================================= */
+function extremes(kind,w){
+  var res=[];
+  for(var i=w;i<TOTAL-w;i++){
+    var ok=true;
+    for(var j=i-w;j<=i+w;j++){
+      if(j===i) continue;
+      if(kind==="high"&&DATA[j].h>=DATA[i].h) ok=false;
+      if(kind==="low"&&DATA[j].l<=DATA[i].l) ok=false;
+    }
+    if(ok) res.push({i:i,p:kind==="high"?DATA[i].h:DATA[i].l});
+  }
+  return res;
+}
+var HIGHS=extremes("high",4),LOWS=extremes("low",4);
+function visRange(){
+  return [Math.max(0,Math.floor(TOTAL*ZOOM.start/100)),Math.min(TOTAL-1,Math.ceil(TOTAL*ZOOM.end/100)-1)];
+}
+function priceSpan(){
+  var r=visRange(),lo=1e18,hi=-1e18;
+  for(var i=r[0];i<=r[1];i++){ lo=Math.min(lo,DATA[i].l); hi=Math.max(hi,DATA[i].h); }
+  return hi-lo;
+}
+function lineSeries(i0,p0,i1,p1){
+  var out=new Array(TOTAL).fill(null),a=Math.max(0,Math.round(i0)),b=Math.min(TOTAL-1,Math.round(i1));
+  if(b<=a) return out;
+  for(var i=a;i<=b;i++) out[i]=p0+(p1-p0)*(i-a)/(b-a);
+  return out;
+}
+function pointSeries(pts){
+  var out=new Array(TOTAL).fill(null);
+  pts.forEach(function(p){ out[Math.round(p.i)]=p.p; });
+  return out;
+}
+function activeLines(){
+  var o=[];
+  if(STATE.on.sma) o.push({a:IND.sma5,n:"5일선"},{a:IND.sma20,n:"20일선"},{a:IND.sma60,n:"60일선"});
+  if(STATE.on.ema) o.push({a:IND.ema20,n:"EMA 20"},{a:IND.ema60,n:"EMA 60"});
+  if(STATE.on.wma) o.push({a:IND.wma20,n:"WMA 20"});
+  if(STATE.on.boll) o.push({a:IND.boll.up,n:"볼린저 상단"},{a:IND.boll.lo,n:"볼린저 하단"},{a:IND.boll.mid,n:"볼린저 중심선"});
+  if(STATE.on.env) o.push({a:IND.env.up,n:"엔벨로프 상단"},{a:IND.env.lo,n:"엔벨로프 하단"});
+  if(STATE.on.hl52) o.push({a:IND.hi52,n:"52주 신고가"},{a:IND.lo52,n:"52주 신저가"});
+  return o;
+}
+function analyze(pts,span){
+  var iMin=1e9,iMax=-1e9,pLo=1e18,pHi=-1e18,len=0,i;
+  var vr=visRange(),width=vr[1]-vr[0]+1;
+  for(i=0;i<pts.length;i++){
+    iMin=Math.min(iMin,pts[i].i);iMax=Math.max(iMax,pts[i].i);
+    pLo=Math.min(pLo,pts[i].p);pHi=Math.max(pHi,pts[i].p);
+    if(i) len+=Math.abs(pts[i].i-pts[i-1].i)+Math.abs(pts[i].p-pts[i-1].p)/span*width;
+  }
+  var a=pts[0],b=pts[pts.length-1];
+  var endD=Math.abs(b.i-a.i)+Math.abs(b.p-a.p)/span*width;
+  var turns=0,dir=0;
+  for(i=1;i<pts.length;i++){
+    var dp=pts[i].p-pts[i-1].p;
+    if(Math.abs(dp)<span*0.006) continue;
+    var nd=dp>0?1:-1;
+    if(dir&&nd!==dir) turns++;
+    dir=nd;
+  }
+  return {straight:len?endD/len:0,closed:endD<width*0.06&&len>width*0.25,turns:turns,
+    wSpan:iMax-iMin,hSpan:(pHi-pLo)/span*width,iMin:iMin,iMax:iMax,pLo:pLo,pHi:pHi,a:a,b:b,width:width};
+}
+function recognize(pts){
+  var span=priceSpan(),f=analyze(pts,span),i;
+  var best=null;
+  activeLines().forEach(function(L){
+    var s=0,c=0;
+    pts.forEach(function(q){
+      var idx=Math.round(q.i);
+      if(idx<0||idx>=TOTAL||L.a[idx]==null) return;
+      s+=Math.abs(q.p-L.a[idx])/span;c++;
+    });
+    if(!c) return;
+    var err=s/c;
+    if(!best||err<best.err) best={err:err,name:L.n,arr:L.a};
+  });
+  if(best&&best.err<0.025&&f.wSpan>6&&!f.closed){
+    var a=Math.max(0,Math.round(f.iMin)),b=Math.min(TOTAL-1,Math.round(f.iMax));
+    var out=new Array(TOTAL).fill(null);
+    for(i=a;i<=b;i++) out[i]=nz(best.arr[i]);
+    var touch=0;
+    for(i=0;i<TOTAL;i++) if(best.arr[i]!=null&&Math.abs(DATA[i].c-best.arr[i])<span*0.004) touch++;
+    return {kind:"snapline",series:out,text:best.name,type:best.name+" 추종",
+      sub:"켜져 있는 지표와 평균 오차 "+(best.err*100).toFixed(2)+"% → 해당 라인으로 스냅",
+      rows:[["대상 지표",best.name],["현재값",won(best.arr[TOTAL-1])],["종가 접촉",touch+"회"]],
+      conf:Math.min(0.97,0.7+(0.025-best.err)*10)};
+  }
+  if(f.closed){
+    return {kind:"zone",i0:Math.max(0,Math.round(f.iMin)),i1:Math.min(TOTAL-1,Math.round(f.iMax)),
+      text:"관심 구간",type:"구간 강조",sub:"닫힌 형태 → 기간 구간으로 고정",
+      rows:[["기간",mmdd(Math.max(0,Math.round(f.iMin)))+" ~ "+mmdd(Math.min(TOTAL-1,Math.round(f.iMax)))],
+            ["가격대",won(f.pLo)+" ~ "+won(f.pHi)]],conf:0.88};
+  }
+  if(f.hSpan>f.wSpan*1.6&&f.straight>0.6){
+    var hi=Math.max(f.a.p,f.b.p),lo=Math.min(f.a.p,f.b.p);
+    return {kind:"fib",type:"피보나치 되돌림",sub:"수직 스트로크 → 되돌림 7단계 생성",
+      levels:[0,0.236,0.382,0.5,0.618,0.786,1].map(function(x){
+        var v=hi+(lo-hi)*x;return {v:v,key:(x===0.618||x===0.382),label:x.toFixed(3)+"  "+won(v)};}),
+      rows:[["고점",won(hi)],["저점",won(lo)],["0.618",won(hi+(lo-hi)*0.618)]],conf:0.91};
+  }
+  if(f.turns>=3&&f.wSpan>f.width*0.15){
+    var peaks=HIGHS.filter(function(h){return h.i>=f.iMin-5&&h.i<=f.iMax+5;});
+    var trs=LOWS.filter(function(l){return l.i>=f.iMin-5&&l.i<=f.iMax+5;});
+    if(peaks.length>=3&&trs.length>=2){
+      peaks=peaks.slice().sort(function(x,y){return y.p-x.p;});
+      var head=peaks[0],L2=null,R2=null,k;
+      for(k=0;k<peaks.length;k++) if(peaks[k].i<head.i-4){L2=peaks[k];break;}
+      for(k=0;k<peaks.length;k++) if(peaks[k].i>head.i+4){R2=peaks[k];break;}
+      if(L2&&R2){
+        var t1=null,t2=null;
+        trs.forEach(function(x){
+          if(x.i>L2.i&&x.i<head.i&&(!t1||x.p<t1.p)) t1=x;
+          if(x.i>head.i&&x.i<R2.i&&(!t2||x.p<t2.p)) t2=x;
+        });
+        if(t1&&t2){
+          var sym=1-Math.min(1,Math.abs(L2.p-R2.p)/span*3);
+          return {kind:"pattern",series:pointSeries([L2,t1,head,t2,R2]),neck:[t1,t2],
+            type:"헤드앤숄더",sub:"전환점 "+f.turns+"회 → 실제 극점 5곳에 스냅",
+            rows:[["헤드",won(head.p)+" ("+mmdd(head.i)+")"],["넥라인",won((t1.p+t2.p)/2)],
+                  ["어깨 대칭도",(sym*100).toFixed(0)+"%"]],conf:0.62+sym*0.3};
+        }
+      }
+    }
+  }
+  var slope=(f.b.p-f.a.p)/Math.max(1,(f.b.i-f.a.i));
+  if(Math.abs(slope)/span*f.width<0.9){
+    var avg=0;pts.forEach(function(q){avg+=q.p;});avg/=pts.length;
+    var cand=HIGHS.concat(LOWS),bp=null,bd=1e18;
+    cand.forEach(function(x){var d=Math.abs(x.p-avg);if(d<bd){bd=d;bp=x;}});
+    var price=bp?bp.p:avg;
+    var tc=cand.filter(function(x){return Math.abs(x.p-price)<span*0.018;}).length;
+    var isRes=price>DATA[TOTAL-1].c;
+    return {kind:"hline",price:price,text:isRes?"저항":"지지",type:isRes?"저항선":"지지선",
+      sub:"수평 스트로크 → 인접 극점 가격으로 스냅",
+      rows:[["가격",won(price)],["접점 수",tc+"개"],
+            ["현재가 대비",((price/DATA[TOTAL-1].c-1)*100).toFixed(2)+"%"]],
+      conf:Math.min(0.96,0.6+tc*0.09)};
+  }
+  var below=0;
+  pts.forEach(function(q){
+    var idx=Math.round(q.i);
+    if(idx<0||idx>=TOTAL) return;
+    if(q.p<(DATA[idx].h+DATA[idx].l)/2) below++;
+  });
+  var useLows=below>pts.length/2;
+  var pool=(useLows?LOWS:HIGHS).filter(function(x){return x.i>=f.iMin-4&&x.i<=f.iMax+4;});
+  if(pool.length<2) pool=(useLows?LOWS:HIGHS).slice();
+  function dist(pt){
+    var m=1e18;
+    pts.forEach(function(q){ m=Math.min(m,Math.pow((q.i-pt.i)/f.width,2)+Math.pow((q.p-pt.p)/span,2)); });
+    return m;
+  }
+  pool=pool.slice().sort(function(x,y){return dist(x)-dist(y);});
+  var p1=pool[0],p2=pool[1]||pool[0];
+  if(p1.i>p2.i){var tm=p1;p1=p2;p2=tm;}
+  var sl=(p2.p-p1.p)/Math.max(1,(p2.i-p1.i));
+  var s0=Math.max(0,Math.round(f.iMin)-2),s1=Math.min(TOTAL-1,Math.round(f.iMax)+6);
+  var pct=sl/DATA[Math.round(p1.i)].c*100;
+  return {kind:"line",series:lineSeries(s0,p1.p+sl*(s0-p1.i),s1,p1.p+sl*(s1-p1.i)),
+    text:useLows?"상승 지지선":"하락 저항선",type:sl>0?"상승 추세선":"하락 추세선",
+    sub:(useLows?"저점":"고점")+" 회귀 후 실제 극점 2곳에 스냅",
+    rows:[["기울기",(pct>0?"+":"")+pct.toFixed(2)+"% / 일"],
+          ["접점",mmdd(p1.i)+" · "+mmdd(p2.i)],["연장 종가",won(p1.p+sl*(s1-p1.i))]],
+    conf:Math.min(0.95,0.55+f.straight*0.42)};
+}
+function renderReadout(r){
+  var rows="";
+  r.rows.forEach(function(x){ rows+='<div class="kv"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>'; });
+  readout.innerHTML='<h3>AI 인식 결과</h3><p class="rtype">'+r.type+'</p>'+
+    '<p class="rsub">'+r.sub+'</p>'+rows+
+    '<div style="margin-top:9px"><div class="kv" style="border:0;padding-bottom:2px"><span>신뢰도</span><b>'+
+    Math.round(r.conf*100)+'%</b></div><div class="confbar"><i></i></div></div>';
+  requestAnimationFrame(function(){
+    var b=readout.querySelector(".confbar i"); if(b) b.style.width=Math.round(r.conf*100)+"%";
+  });
+}
+
+/* =========================================================
+   7. 지표 필 버튼
+   ========================================================= */
+function buildPills(){
+  var ov=document.querySelector('.pills[data-family="overlay"]');
+  ov.innerHTML="";
+  OVERLAY_DEFS.forEach(function(o){
+    var b=document.createElement("button");
+    b.className="pill";b.textContent=o.label;b.dataset.id=o.id;b.title=o.label;
+    b.setAttribute("aria-pressed",STATE.on[o.id]?"true":"false");
+    b.addEventListener("click",function(){
+      STATE.on[o.id]=!STATE.on[o.id];refreshAll();
+    });
+    ov.appendChild(b);
+  });
+  var oc=document.querySelector('.pills[data-family="osc"]');
+  oc.innerHTML="";
+  OSC_DEFS.forEach(function(o){
+    var b=document.createElement("button");
+    b.className="pill";b.textContent=o.label;b.dataset.id=o.id;
+    b.setAttribute("aria-pressed",STATE.osc===o.id?"true":"false");
+    b.addEventListener("click",function(){ STATE.osc=o.id;refreshAll(); });
+    oc.appendChild(b);
+  });
+}
+function syncPills(){
+  document.querySelectorAll('.pills[data-family="overlay"] .pill').forEach(function(b){
+    b.setAttribute("aria-pressed",STATE.on[b.dataset.id]?"true":"false"); });
+  document.querySelectorAll('.pills[data-family="osc"] .pill').forEach(function(b){
+    b.setAttribute("aria-pressed",STATE.osc===b.dataset.id?"true":"false"); });
+}
+function refreshAll(){
+  syncPills();
+  var lg=legendHTML();
+  document.getElementById("legend1").innerHTML=lg;
+  document.getElementById("legend3").innerHTML=lg;
+  var lay=[];
+  if(STATE.on.sma)lay.push("SMA");if(STATE.on.ema)lay.push("EMA");if(STATE.on.wma)lay.push("WMA");
+  if(STATE.on.boll)lay.push("볼린저");if(STATE.on.env)lay.push("엔벨로프");
+  var l2=document.getElementById("lay2");
+  if(l2) l2.textContent="중간 평면: "+(lay.length?lay.join(" · "):"없음");
+  render1();render3();
+  if(three.ready) three.rebuild();
+}
+
+/* =========================================================
+   8. 자연어
+   ========================================================= */
+var nlReadout=document.getElementById("nlReadout"),nlHint=document.getElementById("nlHint");
+function surge(){
+  var b={s:0,i0:0,i1:9};
+  for(var i=0;i<TOTAL-9;i++){var s=0;for(var j=i;j<i+10;j++)s+=DATA[j].v;if(s>b.s)b={s:s,i0:i,i1:i+9};}
+  return b;
+}
+function runNL(text){
+  var t=text.trim();if(!t) return;
+  EX3={tools:[],zones:[],hlines:[],vlines:[],fib:[]};
+  var parsed=[],hit=0,i;
+  parsed.push(["종목","나인샘플전자 (099990)"]);
+  function on(id,label){ STATE.on[id]=true;parsed.push(["지표",label]);hit++; }
+  function setOsc(id,label){ STATE.osc=id;parsed.push(["오실레이터",label]);hit++; }
+
+  if(/단순이동평균|sma|이평선|이동평균선|일선/i.test(t)&&!/지수|가중/.test(t)) on("sma","단순이동평균선 5·20·60");
+  if(/지수이동평균|ema/i.test(t)) on("ema","지수이동평균선 20·60");
+  if(/가중이동평균|wma/i.test(t)) on("wma","가중이동평균선 20");
+  if(/볼린저|bollinger|밴드/i.test(t)) on("boll","볼린저밴드 (20, 2σ)");
+  if(/엔벨로프|envelope/i.test(t)) on("env","이동평균 엔벨로프 (±6%)");
+  if(/파라볼릭|sar/i.test(t)) on("sar","파라볼릭 SAR");
+  if(/52주|신고가|신저가/i.test(t)) on("hl52","52주 신고/신저가");
+  if(/골든|골드|데드|크로스/i.test(t)&&!/macd/i.test(t)) on("cross","골든/데드 크로스");
+
+  if(/rsi/i.test(t)) setOsc("rsi","RSI (14)");
+  else if(/macd/i.test(t)) setOsc("macd","MACD (12,26,9)");
+  else if(/스토캐스틱|스토케스틱/i.test(t)) setOsc("stoch","스토캐스틱 슬로우");
+  else if(/모멘텀/i.test(t)) setOsc("mom","모멘텀 (10)");
+  else if(/차이킨|자금흐름/i.test(t)) setOsc("cmf","차이킨 자금흐름");
+  else if(/투자심리|심리선/i.test(t)) setOsc("psy","투자심리선");
+  else if(/트릭스|trix/i.test(t)) setOsc("trix","트릭스");
+
+  var conds=[],m;
+  m=t.match(/rsi\s*(?:가|는|이)?\s*(\d{1,3})\s*(이하|아래|미만|밑)/i);
+  if(m) conds.push({n:"RSI ≤ "+m[1],f:function(i){return IND.rsi[i]!=null&&IND.rsi[i]<=+m[1];}});
+  m=t.match(/rsi\s*(?:가|는|이)?\s*(\d{1,3})\s*(이상|위|초과|넘)/i);
+  if(m) conds.push({n:"RSI ≥ "+m[1],f:function(i){return IND.rsi[i]!=null&&IND.rsi[i]>=+m[1];}});
+  if(/과매도/.test(t)) conds.push({n:"과매도 RSI≤30",f:function(i){return IND.rsi[i]!=null&&IND.rsi[i]<=30;}});
+  if(/과매수/.test(t)){
+    if(/스토캐스틱|스토케스틱/.test(t)) conds.push({n:"스토캐스틱 %K≥80",f:function(i){return IND.stoch.k[i]!=null&&IND.stoch.k[i]>=80;}});
+    else conds.push({n:"과매수 RSI≥70",f:function(i){return IND.rsi[i]!=null&&IND.rsi[i]>=70;}});
+  }
+  if(/볼린저.*(하단|아래)|하단.*(터치|이탈|돌파)/.test(t))
+    conds.push({n:"볼린저 하단 터치",f:function(i){return IND.boll.lo[i]!=null&&DATA[i].l<=IND.boll.lo[i]*1.002;}});
+  if(/볼린저.*(상단|위)|상단.*(터치|돌파)/.test(t))
+    conds.push({n:"볼린저 상단 터치",f:function(i){return IND.boll.up[i]!=null&&DATA[i].h>=IND.boll.up[i]*0.998;}});
+  if(/macd/i.test(t)&&/골든|골드|상향|크로스/.test(t))
+    conds.push({n:"MACD 시그널 상향 돌파",f:function(i){
+      return i>0&&IND.macd.line[i]!=null&&IND.macd.sig[i]!=null&&
+             IND.macd.line[i-1]<=IND.macd.sig[i-1]&&IND.macd.line[i]>IND.macd.sig[i];}});
+  if(/(5일|단기).*(20일|장기).*(위|돌파|뚫)|골든크로스|골드크로스/.test(t))
+    conds.push({n:"골든크로스",f:function(i){
+      return i>0&&IND.sma5[i]!=null&&IND.sma20[i]!=null&&
+             IND.sma5[i-1]<=IND.sma20[i-1]&&IND.sma5[i]>IND.sma20[i];}});
+  if(/데드크로스/.test(t))
+    conds.push({n:"데드크로스",f:function(i){
+      return i>0&&IND.sma5[i]!=null&&IND.sma20[i]!=null&&
+             IND.sma5[i-1]>=IND.sma20[i-1]&&IND.sma5[i]<IND.sma20[i];}});
+  if(/52주\s*신고가/.test(t)) conds.push({n:"52주 신고가 경신",f:function(i){return DATA[i].h>=IND.hi52[i]*0.999;}});
+  if(/52주\s*신저가/.test(t)) conds.push({n:"52주 신저가 경신",f:function(i){return DATA[i].l<=IND.lo52[i]*1.001;}});
+
+  if(/거래량.*(급증|폭증|터진|증가)/.test(t)){
+    var s=surge();
+    EX3.zones.push({i0:s.i0,i1:s.i1,text:"거래량 급증"});
+    STATE.showVol=true;
+    parsed.push(["구간","10일 누적 거래량 최대 "+mmdd(s.i0)+"~"+mmdd(s.i1)]);hit++;
+  }
+  if(/급등/.test(t)){
+    var bi=0,bv=-1e18;
+    for(i=0;i<TOTAL-12;i++){var r2=DATA[i+12].c/DATA[i].c;if(r2>bv){bv=r2;bi=i;}}
+    EX3.zones.push({i0:bi,i1:bi+12,text:"급등 +"+((bv-1)*100).toFixed(1)+"%"});
+    parsed.push(["구간","12일 상승률 최대 "+mmdd(bi)+"~"+mmdd(bi+12)]);hit++;
+  }
+  if(/피보나치|되돌림/.test(t)){
+    var lo=1e18,hi=-1e18;
+    for(i=0;i<TOTAL;i++){lo=Math.min(lo,DATA[i].l);hi=Math.max(hi,DATA[i].h);}
+    EX3.fib=[0,0.236,0.382,0.5,0.618,0.786,1].map(function(x){
+      var v=hi+(lo-hi)*x;return {v:v,key:(x===0.618||x===0.382),label:x.toFixed(3)+"  "+won(v)};});
+    parsed.push(["도구","피보나치 되돌림 7단계"]);hit++;
+  }
+  if(/헤드앤숄더|헤드 앤 숄더|머리어깨/i.test(t)){
+    var pk=HIGHS.slice().sort(function(a,b){return b.p-a.p;}),hd=pk[0],L3=null,R3=null,k;
+    for(k=0;k<pk.length;k++) if(pk[k].i<hd.i-8){L3=pk[k];break;}
+    for(k=0;k<pk.length;k++) if(pk[k].i>hd.i+8){R3=pk[k];break;}
+    if(L3&&R3){
+      var a1=null,a2=null;
+      LOWS.forEach(function(x){
+        if(x.i>L3.i&&x.i<hd.i&&(!a1||x.p<a1.p)) a1=x;
+        if(x.i>hd.i&&x.i<R3.i&&(!a2||x.p<a2.p)) a2=x;
+      });
+      if(a1&&a2){
+        EX3.tools.push({kind:"pattern",series:pointSeries([L3,a1,hd,a2,R3]),neck:[a1,a2]});
+        parsed.push(["패턴","헤드앤숄더 · 넥라인 "+won((a1.p+a2.p)/2)]);hit++;
+      }
+    }
+  }
+  if(conds.length){
+    var days=[];
+    for(i=0;i<TOTAL;i++){
+      var all=true;
+      for(var q=0;q<conds.length;q++) if(!conds[q].f(i)){all=false;break;}
+      if(all) days.push(i);
+    }
+    conds.forEach(function(c){ parsed.push(["조건",c.n]); });
+    if(days.length){
+      days.forEach(function(d){ EX3.vlines.push({i:d}); });
+      parsed.push(["충족일",days.length+"일 · "+days.slice(-5).map(mmdd).join(" · ")]);
+      ZOOM.start=Math.max(0,(days[0]-15))/TOTAL*100;
+      ZOOM.end=Math.min(100,(days[days.length-1]+15)/TOTAL*100);
+    } else parsed.push(["충족일","조건을 만족하는 날이 없습니다"]);
+    hit++;
+    if(conds.some(function(x){return /볼린저/.test(x.n);})) STATE.on.boll=true;
+    if(conds.some(function(x){return /크로스/.test(x.n);})) STATE.on.cross=true;
+    if(conds.some(function(x){return /52주/.test(x.n);})) STATE.on.hl52=true;
+    if(conds.some(function(x){return /RSI/.test(x.n);})&&STATE.osc==="none") STATE.osc="rsi";
+  }
+  var w3d=/3d|삼디|입체|돌려|회전/i.test(t);
+  if(w3d){ parsed.push(["뷰","3D 지표 레이어로 전환"]);hit++; }
+  if(!hit){
+    parsed.push(["결과","해석 가능한 지시를 찾지 못했습니다"]);
+    parsed.push(["안내","지표명 또는 조건을 문장에 넣어 보세요"]);
+  }
+  nlHint.classList.add("hide");
+  refreshAll();
+  var html='<ul class="parsed">';
+  parsed.forEach(function(p,i2){
+    html+='<li style="animation-delay:'+(i2*60)+'ms"><i>'+String(i2+1).padStart(2,"0")+
+          '</i><div><b>'+p[0]+'</b><br>'+p[1]+'</div></li>';
+  });
+  nlReadout.innerHTML=html+'</ul>';
+  if(w3d) setTimeout(function(){ selectTab(1); },800);
+}
+document.getElementById("nlGo").addEventListener("click",function(){ runNL(document.getElementById("nlInput").value); });
+document.getElementById("nlInput").addEventListener("keydown",function(e){ if(e.key==="Enter") runNL(this.value); });
+document.getElementById("nlPresets").querySelectorAll(".tiny").forEach(function(b){
+  b.addEventListener("click",function(){ document.getElementById("nlInput").value=b.textContent;runNL(b.textContent); });
+});
+
+/* =========================================================
+   9. 3D
+   ========================================================= */
+var three={ready:false};
+function init3D(){
+  if(three.ready||typeof THREE==="undefined") return;
+  var host=document.getElementById("gl"),w=host.clientWidth,h=host.clientHeight;
+  var scene=new THREE.Scene();
+  var cam=new THREE.PerspectiveCamera(38,w/h,1,5000);cam.position.set(0,0,640);
+  var rend=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  rend.setPixelRatio(Math.min(window.devicePixelRatio||1,2));rend.setSize(w,h);
+  rend.localClippingEnabled=true;host.appendChild(rend.domElement);
+  scene.add(new THREE.AmbientLight(0xffffff,.9));
+  var k=new THREE.DirectionalLight(0xffffff,.6);k.position.set(220,300,430);scene.add(k);
+  var fl=new THREE.DirectionalLight(0xBFD9F5,.35);fl.position.set(-300,-120,220);scene.add(fl);
+  var root=new THREE.Group();scene.add(root);var grp=null;
+  var N3=120,S0=TOTAL-N3,SPAN=560,step=SPAN/N3,half=SPAN/2;
+  var pA=new THREE.Plane(new THREE.Vector3(1,0,0),half),
+      pB=new THREE.Plane(new THREE.Vector3(-1,0,0),half),clip=[pA,pB];
+  function build(){
+    if(grp) root.remove(grp);
+    grp=new THREE.Group();root.add(grp);
+    var lo=1e18,hi=-1e18,i;
+    for(i=S0;i<TOTAL;i++){lo=Math.min(lo,DATA[i].l);hi=Math.max(hi,DATA[i].h);}
+    var ys=290/(hi-lo),mid=(lo+hi)/2;
+    function yp(p){return (p-mid)*ys;} function xp(i){return -half+((i-S0)+.5)*step;}
+    var mUp=new THREE.MeshLambertMaterial({color:0xDA3B32,clippingPlanes:clip});
+    var mDn=new THREE.MeshLambertMaterial({color:0x2563EB,clippingPlanes:clip});
+    var mWk=new THREE.MeshBasicMaterial({color:0x6B7280,transparent:true,opacity:.35,clippingPlanes:clip});
+    var mVo=new THREE.MeshLambertMaterial({color:0xC0812E,transparent:true,opacity:.45,clippingPlanes:clip});
+    var bw=step*.6,vmax=0;
+    for(i=S0;i<TOTAL;i++) vmax=Math.max(vmax,DATA[i].v);
+    for(i=S0;i<TOTAL;i++){
+      var d=DATA[i],up=d.c>=d.o,x=xp(i);
+      var bh=Math.max(1.3,Math.abs(yp(d.c)-yp(d.o)));
+      var bd=new THREE.Mesh(new THREE.BoxGeometry(bw,bh,bw),up?mUp:mDn);
+      bd.position.set(x,(yp(d.o)+yp(d.c))/2,0);grp.add(bd);
+      var wk=new THREE.Mesh(new THREE.BoxGeometry(bw*.16,yp(d.h)-yp(d.l),bw*.16),mWk);
+      wk.position.set(x,(yp(d.h)+yp(d.l))/2,0);grp.add(wk);
+      var vh=d.v/vmax*105;
+      var vo=new THREE.Mesh(new THREE.BoxGeometry(bw,vh,bw*.7),mVo);
+      vo.position.set(x,-185+vh/2,-190);grp.add(vo);
+    }
+    function addLine(arr,color,z,op){
+      var pts=[];
+      for(var q=S0;q<TOTAL;q++){ if(arr[q]==null) continue; pts.push(new THREE.Vector3(xp(q),yp(arr[q]),z)); }
+      if(pts.length<2) return;
+      grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({color:color,transparent:true,opacity:op||.95,clippingPlanes:clip})));
+    }
+    var Z1=-95;
+    if(STATE.on.sma){addLine(IND.sma5,0xC3CBD4,Z1);addLine(IND.sma20,0x1D6FE8,Z1);addLine(IND.sma60,0x7CC4F5,Z1);}
+    if(STATE.on.ema){addLine(IND.ema20,0x12A594,Z1-14,.85);addLine(IND.ema60,0xDB6BA6,Z1-14,.85);}
+    if(STATE.on.wma) addLine(IND.wma20,0x7A5AF8,Z1-28,.85);
+    if(STATE.on.boll){addLine(IND.boll.up,0x1D6FE8,Z1+18,.5);addLine(IND.boll.lo,0x1D6FE8,Z1+18,.5);}
+    if(STATE.on.env){addLine(IND.env.up,0x12A594,Z1+30,.5);addLine(IND.env.lo,0x12A594,Z1+30,.5);}
+    if(STATE.on.hl52){addLine(IND.hi52,0xDA3B32,Z1+42,.5);addLine(IND.lo52,0x2563EB,Z1+42,.5);}
+    if(STATE.on.sar){
+      var sp=[];
+      for(i=S0;i<TOTAL;i++){ if(!IND.sar[i]) continue; sp.push(new THREE.Vector3(xp(i),yp(IND.sar[i].v),Z1+8)); }
+      grp.add(new THREE.Points(new THREE.BufferGeometry().setFromPoints(sp),
+        new THREE.PointsMaterial({color:0x7A5AF8,size:4,clippingPlanes:clip})));
+    }
+    var od=oscDef();
+    if(od){
+      var olo=1e18,ohi=-1e18;
+      od.lines.forEach(function(L){for(i=S0;i<TOTAL;i++){var v=L.v[i];if(v==null)continue;olo=Math.min(olo,v);ohi=Math.max(ohi,v);}});
+      if(od.min!=null){olo=od.min;ohi=od.max;}
+      od.lines.forEach(function(L){
+        var op=[];
+        for(i=S0;i<TOTAL;i++){var v=L.v[i];if(v==null)continue;
+          op.push(new THREE.Vector3(xp(i),-305+(v-olo)/((ohi-olo)||1)*95,-190));}
+        if(op.length<2) return;
+        grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(op),
+          new THREE.LineBasicMaterial({color:new THREE.Color(L.c),transparent:true,opacity:.9,clippingPlanes:clip})));
+      });
+    }
+    var gd=new THREE.GridHelper(SPAN,12,0xD6D5CF,0xE7E6E1);
+    gd.position.set(0,-320,-95);gd.material.transparent=true;gd.material.opacity=.8;grp.add(gd);
+    grp.rotation.x=rx;grp.rotation.y=ry;
+  }
+  var rx=0,ry=0,tx=0,ty=0,spin=false,drag=false,lx=0,ly=0,zm=640;
+  var el=rend.domElement;
+  el.addEventListener("pointerdown",function(e){
+    drag=true;spin=false;host.classList.add("dragging");lx=e.clientX;ly=e.clientY;
+    document.getElementById("glHint").classList.add("hide");setP(null);
+  });
+  window.addEventListener("pointermove",function(e){
+    if(!drag) return;
+    ty+=(e.clientX-lx)*.006;tx+=(e.clientY-ly)*.005;
+    tx=Math.max(-1.15,Math.min(1.15,tx));lx=e.clientX;ly=e.clientY;
+  });
+  window.addEventListener("pointerup",function(){drag=false;host.classList.remove("dragging");});
+  el.addEventListener("wheel",function(e){e.preventDefault();zm=Math.max(250,Math.min(1100,zm+e.deltaY*.6));},{passive:false});
+  function setCut(){
+    var pos=+document.getElementById("cutPos").value/100,wid=+document.getElementById("cutWidth").value/100;
+    var cb=pos*(N3-1),hb=wid*N3/2,a=Math.max(0,cb-hb),b=Math.min(N3,cb+hb);
+    pA.constant=-(-half+a*step);pB.constant=(-half+b*step);
+    document.getElementById("cutPosVal").textContent=mmdd(Math.min(TOTAL-1,S0+Math.round(cb)));
+    document.getElementById("cutWidthVal").textContent=Math.round(wid*N3)+"일";
+  }
+  document.getElementById("cutPos").addEventListener("input",setCut);
+  document.getElementById("cutWidth").addEventListener("input",setCut);
+  function setP(nm){ document.querySelectorAll("[data-view]").forEach(function(x){
+    x.setAttribute("aria-pressed",x.getAttribute("data-view")===nm?"true":"false");}); }
+  document.querySelectorAll("[data-view]").forEach(function(b){
+    b.addEventListener("click",function(){
+      var v=b.getAttribute("data-view");setP(v);
+      document.getElementById("glHint").classList.add("hide");spin=(v==="spin");
+      if(v==="front"){tx=0;ty=0;zm=640;}if(v==="iso"){tx=.32;ty=-.6;zm=680;}if(v==="top"){tx=1.05;ty=0;zm=740;}
+    });
+  });
+  build();setCut();
+  (function tick(){
+    requestAnimationFrame(tick);
+    if(spin) ty+=.004;
+    rx+=(tx-rx)*.12;ry+=(ty-ry)*.12;
+    if(grp){grp.rotation.x=rx;grp.rotation.y=ry;}
+    cam.position.z+=(zm-cam.position.z)*.12;
+    rend.render(scene,cam);
+  })();
+  window.addEventListener("resize",function(){
+    var w2=host.clientWidth,h2=host.clientHeight;if(!w2||!h2)return;
+    cam.aspect=w2/h2;cam.updateProjectionMatrix();rend.setSize(w2,h2);
+  });
+  three.ready=true;three.rebuild=build;
+}
+
+/* =========================================================
+   10. 탭
+   ========================================================= */
+var tabs=[document.getElementById("t1"),document.getElementById("t2"),document.getElementById("t3")];
+var panels=[document.getElementById("p1"),document.getElementById("p2"),document.getElementById("p3")];
+function selectTab(idx){
+  tabs.forEach(function(tb,i){
+    tb.setAttribute("aria-selected",i===idx?"true":"false");
+    panels[i].classList.toggle("on",i===idx);
+  });
+  if(idx===1) init3D();
+  if(idx===0) setTimeout(function(){chart1.resize();sizeSketch();},30);
+  if(idx===2) setTimeout(function(){chart3.resize();},30);
+}
+tabs.forEach(function(tb,i){ tb.addEventListener("click",function(){selectTab(i);}); });
+window.addEventListener("resize",function(){ chart1.resize();chart3.resize();sizeSketch(); });
+
+buildPills();
+var lastB=DATA[TOTAL-1],prevB=DATA[TOTAL-2],chg=(lastB.c/prevB.c-1)*100;
+document.getElementById("px1").innerHTML=won(lastB.c)+
+  ' <span style="color:'+(chg>=0?UP:DOWN)+'">'+(chg>=0?"+":"")+chg.toFixed(2)+'%</span>';
+refreshAll();
+setTimeout(sizeSketch,80);
+})();
+</script>
+</body>
+</html>
