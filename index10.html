@@ -1,0 +1,101 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NineMemos AI Insight</title>
+<style>
+:root{--ink:#181818;--mut:#777;--line:#e8e8e8;--soft:#f7f7f8;--purple:#7357e8;--psoft:#f2efff;--green:#16875d;--red:#d65252;--amber:#a87818}
+*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink);font-family:Inter,Arial,"Noto Sans KR",sans-serif;letter-spacing:-.015em}button,input{font:inherit}.top{height:70px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 32px;position:sticky;top:0;background:#fff;z-index:9}.brand{font-size:23px;font-weight:850;letter-spacing:-.04em}.brand small{font-size:10px;color:var(--purple);margin-left:9px;letter-spacing:.08em}.nav{font-size:12px;color:#777}.wrap{max-width:1450px;margin:auto;padding:26px 28px 50px}.ticker{display:flex;align-items:center;gap:11px;margin-bottom:18px}.ticker b{font-size:23px}.mut{color:var(--mut);font-size:11px}.up{color:var(--green)}.grid{display:grid;grid-template-columns:1.55fr .78fr;gap:18px}.card{border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 3px 18px #00000008}.ask{padding:20px 22px;border-bottom:1px solid var(--line)}.eyebrow{font-size:10px;color:var(--purple);font-weight:800;letter-spacing:.09em}.ask h1{font-size:24px;margin:7px 0 5px}.ask p{margin:0;color:#777;font-size:12px}.chips{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0 12px}.chip{border:1px solid #ddd;background:#fff;border-radius:20px;padding:8px 12px;color:#555;font-size:11px;cursor:pointer}.chip:hover,.chip.on{border-color:#cfc4ff;background:var(--psoft);color:#5c45c4}.question{display:flex;gap:8px}.question input{flex:1;border:1px solid #d8d8d8;border-radius:9px;padding:11px 13px;outline:none}.question input:focus{border-color:#aa99f4}.question button{border:0;background:#1b1b1b;color:#fff;border-radius:9px;padding:0 18px;font-weight:700;cursor:pointer}.summary{padding:18px 22px;background:#fcfcfc;border-bottom:1px solid var(--line)}.summary h2{font-size:17px;margin:5px 0 8px}.summary p{font-size:12px;line-height:1.65;color:#666;margin:0}.evidence{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}.ev{background:#fff;border:1px solid #e1e1e1;border-radius:7px;padding:7px 9px;font-size:10px;color:#666}.ev b{color:#222}.chartHead{display:flex;justify-content:space-between;align-items:center;padding:13px 18px;border-bottom:1px solid var(--line)}.chartHead b{font-size:12px}.chart{height:390px;position:relative}.chart svg{width:100%;height:100%}.callout{position:absolute;background:#fff;border:1px solid #d8d8d8;border-radius:8px;padding:7px 9px;font-size:9px;box-shadow:0 4px 14px #0001}.c1{left:48%;top:18%}.c2{left:68%;top:42%}.why{color:var(--purple);font-weight:700;cursor:pointer}.lower{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}.block{padding:17px 20px}.block+ .block{border-left:1px solid var(--line)}.block h3,.side h3{font-size:12px;margin:0 0 12px}.news{padding:9px 0;border-bottom:1px solid #eee;font-size:11px;line-height:1.45}.news:last-child{border:0}.news small{display:block;color:#929292;margin-top:3px}.similar{display:grid;grid-template-columns:1fr 52px 52px 52px;gap:5px;font-size:10px;padding:7px 0;border-bottom:1px solid #eee}.similar.head{color:#999}.sideTop{padding:19px;border-bottom:1px solid var(--line)}.sideTop h2{font-size:19px;margin:5px 0}.level{padding:15px 18px;border-bottom:1px solid var(--line)}.lvl{display:grid;grid-template-columns:56px 1fr;gap:8px;margin:9px 0;font-size:11px}.lvl b{font-size:9px;color:#888}.signal{padding:9px;border:1px solid #e5e5e5;border-radius:8px;background:#fafafa;margin:6px 0;font-size:10px;display:flex;justify-content:space-between}.scenario{border:1px solid #e5e5e5;border-radius:8px;padding:10px;margin:7px 0;font-size:10px}.scenario b{display:block;margin-bottom:3px}.next{background:var(--psoft);border:1px solid #ddd4ff;border-radius:9px;padding:11px;margin-top:8px;font-size:10px;line-height:1.6}.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:15px 18px}.actions button{border:1px solid #ddd;background:#fff;border-radius:8px;padding:10px;font-size:10px;cursor:pointer}.actions .primary{background:#1b1b1b;color:#fff;border-color:#1b1b1b}.toast{display:none;position:fixed;right:22px;bottom:22px;background:#202020;color:white;border-radius:8px;padding:11px 14px;font-size:11px}.hidden{display:none}@media(max-width:950px){.grid{grid-template-columns:1fr}.lower{grid-template-columns:1fr}.block+.block{border-left:0;border-top:1px solid var(--line)}}
+
+.analysisMark{pointer-events:none}
+.loading{display:none;position:absolute;inset:0;background:#ffffffcc;z-index:5;align-items:center;justify-content:center;font-size:12px;color:#666}
+.loading.show{display:flex}
+</style></head><body>
+<div class="top"><div class="brand">NineMemos <small>AI INSIGHT</small></div><div class="nav">Brief &nbsp;&nbsp; Outlook &nbsp;&nbsp; Issues &nbsp;&nbsp; Watchlist</div></div>
+<div class="wrap"><div class="ticker"><b>NVDA</b><span class="mut">NVIDIA Corporation</span><b>$182.14</b><span class="up">+2.84%</span><span class="mut">NASDAQ · UI demo</span></div>
+<div class="grid"><main class="card">
+<section class="ask"><div class="eyebrow">ASK NINEMEMOS</div><h1>이 종목에서 무엇이 궁금하세요?</h1><p>지표를 고르지 않아도 됩니다. 질문하면 AI가 필요한 데이터와 차트를 선택합니다.</p>
+<div class="chips"><button class="chip on" onclick="choose(this,'최근 상승은 왜 발생했어?')">왜 올랐어?</button><button class="chip" onclick="choose(this,'최근 추세가 바뀌었어?')">추세가 바뀌었어?</button><button class="chip" onclick="choose(this,'지금 과열 상태야?')">지금 과열이야?</button><button class="chip" onclick="choose(this,'거래량이 의미 있는 수준이야?')">거래량 의미 있어?</button><button class="chip" onclick="choose(this,'과거에도 이런 패턴이 있었어?')">과거에도 이랬어?</button></div>
+<div class="question"><input id="q" value="최근 상승은 왜 발생했어?"><button onclick="run()">분석하기</button></div></section>
+<section id="analysis">
+<div class="summary"><div class="eyebrow">AI INTERPRETATION</div><h2 id="interpTitle">이번 상승은 기업 고유 모멘텀과 반도체 섹터 상승이 함께 나타난 구간입니다.</h2><p id="interpBody">가격 상승과 거래량 증가가 동시에 나타났고, 실적 기대 변화와 AI 데이터센터 수요 관련 이슈가 같은 시기에 집중되었습니다. 단순한 가격 반등인지 판단하려면 <b>저항선 돌파 후 거래량 유지</b>를 추가로 확인할 필요가 있습니다.</p>
+<div class="evidence" id="evidence"><span class="ev"><b>가격</b> +17.3%</span><span class="ev"><b>거래량</b> 1.8×</span><span class="ev"><b>SOXX 대비</b> +9.1%p</span><span class="ev"><b>RSI</b> 67</span></div></div>
+<div class="chartHead"><b id="chartTitle">AI가 선택한 차트 · Price + Volume + Context</b><span class="mut">3M · 1D</span></div><div class="chart"><svg id="svg"></svg><div class="loading" id="loading">AI가 질문에 맞는 신호와 구간을 찾는 중...</div><div class="callout c1"><b>거래량 증가</b><br><span class="why" onclick="toast('근거 데이터로 이동합니다')">왜? →</span></div><div class="callout c2"><b>저항 구간 $182</b><br><span class="why" onclick="toast('과거 돌파 사례를 엽니다')">과거 사례 →</span></div></div>
+<div class="lower"><div class="block"><h3>뉴스 + 이슈 연결</h3><div class="news"><b>AI 데이터센터 수요 기대 확대</b><small>가격 상승 구간과 관련 뉴스 집중 시점이 중첩 · <span class="why">근거 보기 →</span></small></div><div class="news"><b>실적 추정치 상향 흐름</b><small>컨센서스 변화가 상승 구간 전후에 관찰됨 · <span class="why">왜? →</span></small></div><div class="news"><b>반도체 섹터 동반 상승</b><small>SOXX 상승으로 일부 시장/섹터 효과 존재</small></div></div>
+<div class="block"><h3>현재와 유사했던 과거 구간</h3><div class="similar head"><span>기간</span><span>5D</span><span>20D</span><span>60D</span></div><div class="similar"><span>Case A · 유사도 91%</span><span class="up">+3.2%</span><span class="up">+8.1%</span><span>+4.4%</span></div><div class="similar"><span>Case B · 유사도 86%</span><span>-1.1%</span><span class="up">+5.4%</span><span class="up">+11%</span></div><div class="similar"><span>Case C · 유사도 82%</span><span class="up">+2.0%</span><span style="color:var(--red)">-4.2%</span><span style="color:var(--red)">-7.1%</span></div><p class="mut">※ 예시 수치. 실서비스에서는 유사도 기준과 표본 수를 함께 표시.</p></div></div></section></main>
+<aside class="card side"><div class="sideTop"><div class="eyebrow">FROM DATA TO INSIGHT</div><h2>투자 판단에 필요한 구조</h2><span class="mut">AI 결론보다 근거와 조건을 먼저 보여줍니다.</span></div>
+<div class="level" id="levels"><div class="lvl"><b>DATA</b><div>가격 +17.3% · 거래량 1.8배 · 섹터 +7.1%</div></div><div class="lvl"><b>SIGNAL</b><div>거래량 동반 상승 · 저항선 접근 · RSI 67</div></div><div class="lvl"><b>MEANING</b><div>단순 반등보다 매수 모멘텀이 강화된 구간으로 해석할 근거가 존재</div></div><div class="lvl"><b>INSIGHT</b><div><strong>다음 확인 포인트는 $182 돌파 후 거래량 유지 여부</strong></div></div></div>
+<div class="level"><h3>긍정 신호 / 주의 신호</h3><div class="signal"><span>EPS estimate revisions</span><b class="up">긍정</b></div><div class="signal"><span>Relative strength vs SOXX</span><b class="up">긍정</b></div><div class="signal"><span>RSI 67 · 과열 접근</span><b style="color:var(--amber)">주의</b></div></div>
+<div class="level"><h3>조건부 시나리오</h3><div class="scenario"><b>A · $182 돌파 + 거래량 유지</b><span class="mut">상승 추세가 이어지는지 확인할 조건</span></div><div class="scenario"><b>B · $182 돌파 실패</b><span class="mut">단기 모멘텀 약화 여부 재평가</span></div><div class="scenario"><b>C · 거래량 급감</b><span class="mut">상승 동력 약화 가능성을 확인</span></div><div class="next"><b>다음에 확인할 것</b><br>① $182 저항 돌파 여부<br>② 거래량이 20일 평균 이상 유지되는지<br>③ EPS 컨센서스 추가 상향 여부</div></div>
+<div class="actions"><button onclick="toast('근거 데이터 패널을 엽니다')">근거 데이터</button><button onclick="toast('과거 사례를 더 검색합니다')">과거 사례</button><button onclick="toast('조건 Alert를 만들었습니다')">🔔 조건 Alert</button><button class="primary" onclick="toast('분석을 Watchlist에 저장했습니다')">분석 저장</button></div></aside></div></div><div class="toast" id="toast"></div>
+<script>
+const s=document.getElementById('svg'),NS='http://www.w3.org/2000/svg';let vals=[],p=142;for(let i=0;i<90;i++){p+=(Math.random()-.45)*4+(i>48&&i<65?.8:0);vals.push(Math.max(130,Math.min(191,p)))}
+function E(t,a){let e=document.createElementNS(NS,t);for(let k in a)e.setAttribute(k,a[k]);return e}function draw(){s.innerHTML='';let w=s.clientWidth,h=s.clientHeight,pd=38,min=126,max=196;for(let i=0;i<5;i++){let y=pd+i*(h-70)/4;s.append(E('line',{x1:pd,x2:w-10,y1:y,y2:y,stroke:'#edf0f2'}))}let sx=(w-pd-14)/(vals.length-1),sy=(h-75)/(max-min);vals.forEach((v,i)=>{let x=pd+i*sx,o=v+(Math.random()-.5)*2,c=v+(Math.random()-.5)*2,Y=q=>h-35-(q-min)*sy,col=c>=o?'#16875d':'#d65252';s.append(E('line',{x1:x,x2:x,y1:Y(Math.max(o,c)+2),y2:Y(Math.min(o,c)-2),stroke:col}));s.append(E('rect',{x:x-2,y:Math.min(Y(o),Y(c)),width:4,height:Math.max(2,Math.abs(Y(o)-Y(c))),fill:col,rx:1}));if(i%3==0){let vh=((i*17)%45)+8;s.append(E('rect',{x:x-2,y:h-25-vh,width:4,height:vh,fill:'#d8d1f8',opacity:.65}))}});s.append(E('line',{x1:w*.56,x2:w*.94,y1:h*.27,y2:h*.27,stroke:'#3978d6','stroke-width':1.5,'stroke-dasharray':'5 4'}))}
+function choose(b,t){document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');document.getElementById('q').value=t}
+const analyses={
+"최근 상승은 왜 발생했어?":{
+ title:"이번 상승은 기업 고유 모멘텀과 반도체 섹터 상승이 함께 나타난 구간입니다.",
+ body:"가격 상승과 거래량 증가가 동시에 나타났고, 실적 기대 변화와 AI 데이터센터 수요 관련 이슈가 같은 시기에 집중되었습니다. <b>저항선 돌파 후 거래량 유지</b>가 다음 확인 포인트입니다.",
+ chart:"AI가 선택한 차트 · Price + Volume + Context",
+ ev:[["가격","+17.3%"],["거래량","1.8×"],["SOXX 대비","+9.1%p"],["RSI","67"]], type:"why"
+},
+"최근 추세가 바뀌었어?":{
+ title:"단기 추세는 상승 방향으로 전환되는 신호가 나타났지만 아직 확인 구간입니다.",
+ body:"저점이 높아지고 단기 이동평균 기울기가 상승했습니다. 다만 <b>중기 저항선 $182 안착</b> 여부가 추세 전환 확인에 중요합니다.",
+ chart:"AI가 선택한 차트 · Trend + Moving Average + Support/Resistance",
+ ev:[["20D MA","상향"],["Higher Low","3회"],["저항","$182"],["추세","전환 후보"]], type:"trend"
+},
+"지금 과열 상태야?":{
+ title:"모멘텀은 강하지만 단기 과열권에 접근하고 있습니다.",
+ body:"RSI가 67까지 상승했고 가격이 단기 평균선에서 이격되었습니다. 아직 극단적 과열로 단정하기보다 <b>RSI 70 돌파와 거래량 둔화 여부</b>를 함께 확인해야 합니다.",
+ chart:"AI가 선택한 차트 · Price + RSI + Distance from MA",
+ ev:[["RSI","67"],["20D 이격","+8.4%"],["거래량","1.8×"],["상태","과열 접근"]], type:"hot"
+},
+"거래량이 의미 있는 수준이야?":{
+ title:"최근 거래량 증가는 평소보다 유의하게 높고 가격 상승과 동반되었습니다.",
+ body:"선택 구간의 거래량이 20일 평균 대비 약 1.8배 수준으로 확대되었습니다. <b>가격 상승과 거래량 증가가 동시에 유지되는지</b>가 핵심입니다.",
+ chart:"AI가 선택한 차트 · Price + Relative Volume",
+ ev:[["상대 거래량","1.8×"],["20D 평균","기준 1.0×"],["가격","+17.3%"],["동행","확인"]], type:"volume"
+},
+"과거에도 이런 패턴이 있었어?":{
+ title:"현재와 유사한 가격·거래량 패턴이 과거에도 여러 차례 관찰됩니다.",
+ body:"현재 구간과 유사한 형태를 비교하면 이후 성과가 한 방향으로만 나타나지는 않았습니다. 따라서 <b>유사도뿐 아니라 이후 결과의 분포</b>를 함께 보는 것이 중요합니다.",
+ chart:"AI가 선택한 차트 · Current Pattern + Historical Similarity",
+ ev:[["유사 사례","5개"],["최고 유사도","91%"],["20D 상승","3/5"],["20D 하락","2/5"]], type:"history"
+}};
+function marks(type){
+ let w=s.clientWidth,h=s.clientHeight;
+ s.querySelectorAll('.analysisMark').forEach(x=>x.remove());
+ const add=(x)=>s.append(x);
+ if(type==="why"){
+   add(E('rect',{class:'analysisMark',x:w*.49,y:h*.08,width:w*.19,height:h*.72,rx:8,fill:'#7357e812',stroke:'#7357e8','stroke-width':1.5,'stroke-dasharray':'5 4'}));
+   add(E('line',{class:'analysisMark',x1:w*.48,y1:h*.70,x2:w*.70,y2:h*.30,stroke:'#7357e8','stroke-width':2.5}));
+   add(E('line',{class:'analysisMark',x1:w*.55,y1:h*.27,x2:w*.94,y2:h*.27,stroke:'#3978d6','stroke-width':2,'stroke-dasharray':'6 4'}));
+ } else if(type==="trend"){
+   add(E('line',{class:'analysisMark',x1:w*.18,y1:h*.69,x2:w*.86,y2:h*.35,stroke:'#7357e8','stroke-width':3}));
+   add(E('line',{class:'analysisMark',x1:w*.18,y1:h*.75,x2:w*.86,y2:h*.49,stroke:'#b5a7f4','stroke-width':2}));
+   add(E('text',{class:'analysisMark',x:w*.63,y:h*.32,fill:'#5d46c5','font-size':11,'font-weight':700}));
+   s.lastChild.textContent="Trend change candidate";
+ } else if(type==="hot"){
+   add(E('rect',{class:'analysisMark',x:w*.73,y:h*.08,width:w*.20,height:h*.55,rx:8,fill:'#fff1d5',stroke:'#c89022','stroke-width':1.5}));
+   add(E('line',{class:'analysisMark',x1:w*.73,y1:h*.20,x2:w*.93,y2:h*.20,stroke:'#c89022','stroke-width':2,'stroke-dasharray':'5 4'}));
+   let t=E('text',{class:'analysisMark',x:w*.75,y:h*.16,fill:'#a87818','font-size':11,'font-weight':700});t.textContent="RSI 67 · Overheat watch";add(t);
+ } else if(type==="volume"){
+   for(let i=48;i<67;i+=3){let x=w*(.47+(i-48)*.011);add(E('rect',{class:'analysisMark',x:x,y:h*.79-(i%7)*3,width:7,height:55+(i%5)*8,fill:'#7357e8',opacity:.55}))}
+   let t=E('text',{class:'analysisMark',x:w*.50,y:h*.73,fill:'#5d46c5','font-size':11,'font-weight':700});t.textContent="Relative volume 1.8×";add(t);
+ } else {
+   [0.18,0.35,0.52].forEach((x,i)=>add(E('rect',{class:'analysisMark',x:w*x,y:h*(.18+i*.08),width:w*.13,height:h*.27,rx:8,fill:'#7357e80d',stroke:'#9a87e8','stroke-width':1.5,'stroke-dasharray':'5 4'})));
+   let t=E('text',{class:'analysisMark',x:w*.18,y:h*.13,fill:'#5d46c5','font-size':11,'font-weight':700});t.textContent="Historical similar periods";add(t);
+ }
+}
+function renderAnalysis(a){
+ document.getElementById('interpTitle').innerHTML=a.title;
+ document.getElementById('interpBody').innerHTML=a.body;
+ document.getElementById('chartTitle').textContent=a.chart;
+ document.getElementById('evidence').innerHTML=a.ev.map(x=>`<span class="ev"><b>${x[0]}</b> ${x[1]}</span>`).join('');
+ marks(a.type);
+}
+function run(){
+ let q=document.getElementById('q').value.trim();
+ let a=analyses[q]||analyses["최근 상승은 왜 발생했어?"];
+ let l=document.getElementById('loading');l.classList.add('show');document.getElementById('analysis').style.opacity='.4';
+ setTimeout(()=>{draw();renderAnalysis(a);l.classList.remove('show');document.getElementById('analysis').style.opacity='1';toast('질문에 맞춰 차트와 분석 결과를 변경했습니다')},420);
+}
+function toast(t){let x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}window.onresize=draw;setTimeout(draw,50)
+</script></body></html>
